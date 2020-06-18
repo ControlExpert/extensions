@@ -351,20 +351,35 @@ namespace Signum.Engine.Word
         internal protected override void RenderNode(WordTemplateParameters p)
         {
             object? obj = ValueProvider.GetValue(p);
-            string? text = obj is Enum en ? en.NiceToString() :
-                obj is TimeSpan ts ? ts.ToString(Format?.Replace(":", @"\:") ?? ValueProvider.Format, p.Culture) :
-                obj is IFormattable fo ? fo.ToString(Format ?? ValueProvider.Format, p.Culture) :
-                obj?.ToString();
 
+            string? text;
+            
+            switch (obj)
+            {
+                case Enum e:
+                    text = e.NiceToString();
+                    break;
+                case bool b:
+                    text = b ? BooleanEnum.True.NiceToString() : BooleanEnum.False.NiceToString();
+                    break;
+                case IFormattable f:
+                    text = f.ToString(Format ?? ValueProvider.Format, p.Culture);
+                    break;
+                default:
+                    text = obj?.ToString();
+                    break;
+            }
+            
             if (text != null && text.Contains('\n'))
             {
-                var replacements = text.Lines().Select((line, i) => this.NodeProvider.NewRun((OpenXmlCompositeElement?)this.RunProperties?.CloneNode(true), line, initialBr: i > 0));
+                var replacements = text.Lines()
+                    .Select((line, i) => NodeProvider.NewRun((OpenXmlCompositeElement?)RunProperties?.CloneNode(true), line, initialBr: i > 0));
 
                 this.ReplaceBy(replacements);
             }
             else
             {
-                this.ReplaceBy(this.NodeProvider.NewRun((OpenXmlCompositeElement?)this.RunProperties?.CloneNode(true), text));
+                this.ReplaceBy(NodeProvider.NewRun((OpenXmlCompositeElement?)RunProperties?.CloneNode(true), text));
             }
         }
 
