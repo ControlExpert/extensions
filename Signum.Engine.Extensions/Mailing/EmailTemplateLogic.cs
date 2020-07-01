@@ -538,6 +538,6 @@ namespace Signum.Engine.Mailing
                 .ToList();
         }
 
-        public static Func<Entity?, CultureInfo>? GetCultureInfo;
+        public static Func<Entity, CultureInfo> GetCultureInfo;
     }
 }
