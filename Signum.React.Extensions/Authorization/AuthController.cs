@@ -155,8 +155,10 @@ namespace Signum.React.Authorization
                 return ModelError("oldPassword", LoginAuthMessage.InvalidPassword.NiceToString());
 
             user.PasswordHash = Security.EncodePassword(request.newPassword);
+            
             using (AuthLogic.Disable())
             using (OperationLogic.AllowSave<UserEntity>())
+            using (OperationLogic.AllowSave<CultureInfoEntity>())
             {
                 user.Save();
             }
