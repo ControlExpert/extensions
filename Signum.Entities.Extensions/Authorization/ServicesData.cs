@@ -22,7 +22,9 @@ namespace Signum.Entities.Authorization
 
         public A GetAllowed(K key)
         {
+#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
             if (OverrideDictionary != null && OverrideDictionary.TryGetValue(key, out A result))
+#pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
                 return result;
 
             return DefaultAllowed(key);
