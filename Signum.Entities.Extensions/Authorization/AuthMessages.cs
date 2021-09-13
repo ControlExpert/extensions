@@ -108,7 +108,7 @@ namespace Signum.Entities.Authorization
         [Description("Reset Password")]
         ResetPassword,
         ResetPasswordCode,
-        [Description("A confirmation code to reset your password has been sent to the email account {0}")]
+        [Description("A confirmation code to reset your password has been sent")]
         ResetPasswordCodeHasBeenSent,
         [Description("Your password has been successfully changed")]
         ResetPasswordSuccess,
@@ -163,6 +163,16 @@ namespace Signum.Entities.Authorization
         YouCanResetYourPasswordByFollowingTheLinkBelow,
         [Description("Reset password request")]
         ResetPasswordRequestSubject,
+        [Description("Password changed")]
+        PasswordChangedSubject,
+        [Description("Your password has recently been changed")]
+        YourPasswordHasRecentlyBeenChanged,
+        [Description("If you have not changed your password, please get in contact with us")]
+        IfYouHaveNotChangedYourPasswordPleaseGetInContactWithUs,
+        [Description("Your account has been locked")]
+        AccountLockedSubject,
+        [Description("Your account has been locked due to several failed logins")]
+        YourAccountHasBeenBlockedDueToSeveralFailedLogins,
         [Description("Your reset password request has expired")]
         YourResetPasswordRequestHasExpired,
         [Description("We have send you an email to reset your password")]

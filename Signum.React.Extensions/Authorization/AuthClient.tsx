@@ -1,21 +1,42 @@
-import * as React from 'react'
-import { ModifiableEntity, EntityPack, is, OperationSymbol } from '@framework/Signum.Entities';
+import { ImportRoute } from '@framework/AsyncImport';
+import * as Finder from '@framework/Finder';
 import { ifError } from '@framework/Globals';
-import { ajaxPost, ajaxGet, ajaxGetRaw, saveFile, ServiceError } from '@framework/Services';
+import { LineBaseProps, tasks, LineBaseController } from '@framework/Lines/LineBase';
+import * as Navigator from '@framework/Navigator';
+import { EntitySettings } from '@framework/Navigator';
+import * as Operations from '@framework/Operations';
+import { EntityOperationSettings } from '@framework/Operations';
+import * as QuickLinks from '@framework/QuickLinks';
+import {
+  getQueryInfo,
+  getTypeInfo,
+  GraphExplorer,
+  OperationInfo,
+  PropertyRoute,
+  PseudoType
+} from '@framework/Reflection';
 import * as Services from '@framework/Services';
-import { EntitySettings } from '@framework/Navigator'
-import { tasks, LineBaseProps, LineBaseController } from '@framework/Lines/LineBase'
-import * as Navigator from '@framework/Navigator'
-import * as Finder from '@framework/Finder'
-import * as QuickLinks from '@framework/QuickLinks'
-import { EntityOperationSettings } from '@framework/Operations'
-import { PropertyRouteEntity } from '@framework/Signum.Entities.Basics'
-import { PseudoType, getTypeInfo, OperationInfo, getQueryInfo, GraphExplorer, PropertyRoute } from '@framework/Reflection'
-import * as Operations from '@framework/Operations'
-import { UserEntity, RoleEntity, UserOperation, PermissionSymbol, PropertyAllowed, TypeAllowedBasic, AuthAdminMessage, BasicPermission } from './Signum.Entities.Authorization'
-import { PermissionRulePack, TypeRulePack, OperationRulePack, PropertyRulePack, QueryRulePack, QueryAllowed } from './Signum.Entities.Authorization'
-import * as OmniboxClient from '../Omnibox/OmniboxClient'
-import { ImportRoute } from "@framework/AsyncImport";
+import { ajaxGet, ajaxGetRaw, ajaxPost, saveFile, ServiceError } from '@framework/Services';
+import { EntityPack, is, ModifiableEntity, OperationSymbol } from '@framework/Signum.Entities';
+import { PropertyRouteEntity } from '@framework/Signum.Entities.Basics';
+import * as React from 'react';
+import * as OmniboxClient from '../Omnibox/OmniboxClient';
+import {
+  AuthAdminMessage,
+  BasicPermission,
+  OperationRulePack,
+  PermissionRulePack,
+  PermissionSymbol,
+  PropertyAllowed,
+  PropertyRulePack,
+  QueryAllowed,
+  QueryRulePack,
+  RoleEntity,
+  TypeAllowedBasic,
+  TypeRulePack,
+  UserEntity,
+  UserOperation
+} from './Signum.Entities.Authorization';
 import Login, { LoginWithWindowsButton } from './Login/Login';
 
 Services.AuthTokenFilter.addAuthToken = addAuthToken;
@@ -37,6 +58,13 @@ export function startPublic(options: { routes: JSX.Element[], userTicket: boolea
   if (Options.userTicket) {
     if (!authenticators.contains(loginFromCookie))
       throw new Error("call AuthClient.registerUserTicketAuthenticator in Main.tsx before AuthClient.autoLogin");
+  }
+
+  if (Options.windowsAuthentication) {
+    if (!authenticators.contains(loginWindowsAuthentication))
+      throw new Error("call AuthClient.registerWindowsAuthenticator in Main.tsx before AuthClient.autoLogin");
+
+    Login.customLoginButtons = () => <LoginWithWindowsButton />;
   }
 
   if (Options.windowsAuthentication) {
@@ -82,7 +110,6 @@ export let queries: boolean;
 export let permissions: boolean;
 
 export function start(options: { routes: JSX.Element[], types: boolean; properties: boolean, operations: boolean, queries: boolean; permissions: boolean }) {
-
   types = options.types;
   properties = options.properties;
   operations = options.operations;
@@ -472,7 +499,6 @@ export module API {
 
   export interface ForgotPasswordEmailRequest {
     email: string;
-   
   }
 
   export interface ResetPasswordRequest {

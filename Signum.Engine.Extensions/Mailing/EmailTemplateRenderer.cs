@@ -20,15 +20,15 @@ namespace Signum.Engine.Mailing
         QueryDescription qd;
         EmailSenderConfigurationEntity? smtpConfig;
 
-        public EmailMessageBuilder(EmailTemplateEntity template, Entity? entity, IEmailModel? systemEmail)
+        public EmailMessageBuilder(EmailTemplateEntity template, Entity? entity, IEmailModel? model)
         {
             this.template = template;
             this.entity = entity;
-            this.model = systemEmail;
+            this.model = model;
 
             this.queryName = QueryLogic.ToQueryName(template.Query.Key);
             this.qd = QueryLogic.Queries.QueryDescription(queryName);
-            this.smtpConfig = EmailTemplateLogic.GetSmtpConfiguration?.Invoke(template, (systemEmail?.UntypedEntity as Entity ?? entity)?.ToLite());
+            this.smtpConfig = EmailTemplateLogic.GetSmtpConfiguration?.Invoke(template, (model?.UntypedEntity as Entity ?? entity)?.ToLite());
         }
 
         ResultTable table = null!;
@@ -47,8 +47,13 @@ namespace Signum.Engine.Mailing
                     EmailMessageEntity email;
                     try
                     {
-                        CultureInfo ci = recipients.Where(a => a.Kind == EmailRecipientKind.To).Select(a => a.OwnerData.CultureInfo).FirstOrDefault()?.ToCultureInfo() ??
-                            EmailLogic.Configuration.DefaultCulture.ToCultureInfo();
+                        var ci = EmailTemplateLogic.GetCultureInfo != null
+                            ? EmailTemplateLogic.GetCultureInfo(entity ?? model?.UntypedEntity as Entity)
+                            : (recipients
+                                .Where(a => a.Kind == EmailRecipientKind.To)
+                                .Select(a => a.OwnerData.CultureInfo)
+                                .FirstOrDefault() ?? EmailLogic.Configuration.DefaultCulture
+                              ).ToCultureInfo();
 
                         email = new EmailMessageEntity
                         {

@@ -14,7 +14,9 @@ using System.Reflection;
 using Signum.Engine.Operations;
 using System.Xml.Linq;
 using System.IO;
+using Signum.Engine.Mailing;
 using Signum.Engine.Scheduler;
+using Signum.Entities.Mailing;
 using Signum.Engine;
 using System.Linq.Expressions;
 
@@ -45,10 +47,11 @@ namespace Signum.Engine.Authorization
             get { return anonymousUserLazy.Value; }
         }
 
-
-        [AutoExpressionField]
-        public static IQueryable<UserEntity> Users(this RoleEntity r) =>
-            As.Expression(() => Database.Query<UserEntity>().Where(u => u.Role.Is(r)));   
+        static Expression<Func<RoleEntity, IQueryable<UserEntity>>> UsersExpression = r => 
+            As.Expression(() => Database.Query<UserEntity>().Where(u => u.Role.Is(r)));
+        
+        [ExpressionField(nameof(UsersExpression))]
+        public static IQueryable<UserEntity> Users(this RoleEntity r) => UsersExpression.Evaluate(r);
 
         static ResetLazy<DirectedGraph<Lite<RoleEntity>>> roles = null!;
         static ResetLazy<DirectedGraph<Lite<RoleEntity>>> rolesInverse = null!;
@@ -140,6 +143,19 @@ namespace Signum.Engine.Authorization
 
 
                 UserGraph.Register();
+                
+                EmailModelLogic.RegisterEmailModel<UserLockedMail>(() => new EmailTemplateEntity
+                {
+                    Messages = CultureInfoLogic.ForEachCulture(culture => new EmailTemplateMessageEmbedded(culture)
+                    {
+                        Text =
+                            "<p>{0}</p>".FormatWith(AuthEmailMessage.YourAccountHasBeenBlockedDueToSeveralFailedLogins.NiceToString()) +
+                            "<p>{0}</p>".FormatWith(AuthEmailMessage.YouCanResetYourPasswordByFollowingTheLinkBelow
+                                .NiceToString()) +
+                            "<p><a href=\"@[m:Url]\">@[m:Url]</a></p>",
+                        Subject = AuthEmailMessage.AccountLockedSubject.NiceToString()
+                    }).ToMList()
+                });
             }
         }
 
@@ -687,5 +703,22 @@ namespace Signum.Engine.Authorization
           System.Runtime.Serialization.SerializationInfo info,
           System.Runtime.Serialization.StreamingContext context)
             : base(info, context) { }
+    }
+    
+    public class UserLockedMail : EmailModel<UserEntity>
+    {
+        public string Url;
+        
+        public UserLockedMail(UserEntity entity) : this(entity, "http://testurl.com") { }
+
+        public UserLockedMail(UserEntity entity, string url) : base(entity)
+        {
+            this.Url = url;
+        }
+
+        public override List<EmailOwnerRecipientData> GetRecipients()
+        {
+            return SendTo(Entity.EmailOwnerData);
+        }
     }
 }

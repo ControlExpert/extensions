@@ -1,3 +1,4 @@
+using Signum.Entities.Scheduler;
 using System;
 
 namespace Signum.Entities.Authorization
@@ -5,7 +6,7 @@ namespace Signum.Entities.Authorization
     [Serializable, EntityKind(EntityKind.System, EntityData.Transactional)]
     public class ResetPasswordRequestEntity : Entity
     {
-        [StringLengthValidator(Max = 200)]
+        [UniqueIndex(AvoidAttachToUniqueIndexes = true)]
         public string Code { get; set; }
         
         public UserEntity User { get; set; }
@@ -20,4 +21,10 @@ namespace Signum.Entities.Authorization
     {
         public static readonly ExecuteSymbol<ResetPasswordRequestEntity> Execute;
     }
+
+    [AutoInit]
+    public static class ResetPasswordRequestTask
+    {
+        public static SimpleTaskSymbol Timeout;
     }
+}
