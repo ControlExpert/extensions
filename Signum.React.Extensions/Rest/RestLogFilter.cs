@@ -52,10 +52,10 @@ namespace Signum.React.RestLog
                     Controller = context.Controller.GetType().FullName!,
                     ControllerName = context.Controller.GetType().Name,
                     Action = ((ControllerActionDescriptor)context.ActionDescriptor).ActionName,
-                    MachineName = System.Environment.MachineName,
+                    MachineName = Environment.MachineName,
                     ApplicationName = AppDomain.CurrentDomain.FriendlyName,
                     StartDate = TimeZoneManager.Now,
-                    UserHostAddress = connection.RemoteIpAddress.ToString(),
+                    UserHostAddress = connection?.RemoteIpAddress?.ToString(),
                     UserHostName = request.Host.Value,
                     Referrer = request.Headers["Referrer"].ToString(),
                     RequestBody = IgnoreRequestBody ? null : GetRequestBody(context.HttpContext.Request)

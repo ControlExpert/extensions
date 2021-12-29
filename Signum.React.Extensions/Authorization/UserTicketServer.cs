@@ -24,7 +24,7 @@ namespace Signum.React.Authorization
 
                     var httpConnection = ac.HttpContext.Features.Get<IHttpConnectionFeature>();
 
-                    UserEntity user = UserTicketLogic.UpdateTicket(httpConnection.RemoteIpAddress.ToString(), ref ticketText);
+                    UserEntity user = UserTicketLogic.UpdateTicket(httpConnection?.RemoteIpAddress?.ToString(), ref ticketText);
 
                     AuthServer.OnUserPreLogin(ac, user);
 
@@ -56,7 +56,7 @@ namespace Signum.React.Authorization
         {
             var httpConnection = ac.HttpContext.Features.Get<IHttpConnectionFeature>();
 
-            string ticketText = UserTicketLogic.NewTicket(httpConnection.LocalIpAddress.ToString());
+            string ticketText = UserTicketLogic.NewTicket(httpConnection?.LocalIpAddress?.ToString());
 
             ac.HttpContext.Response.Cookies.Append(CookieName, ticketText, new CookieOptions
             {
