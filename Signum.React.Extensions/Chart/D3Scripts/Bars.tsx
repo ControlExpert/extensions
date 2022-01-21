@@ -11,9 +11,9 @@ import { Rule } from './Components/Rule';
 import InitialMessage from './Components/InitialMessage';
 
 
-export default function renderBars({ data, width, height, parameters, loading, onDrillDown, initialLoad }: ChartScriptProps): React.ReactElement<any> {
+export default function renderBars({ data, width, height, parameters, loading, onDrillDown, initialLoad, chartRequest }: ChartScriptProps): React.ReactElement<any> {
 
-  var xRule = new Rule({
+  var xRule = Rule.create({
     _1: 5,
     title: 15,
     _2: 10,
@@ -24,7 +24,7 @@ export default function renderBars({ data, width, height, parameters, loading, o
     _4: 5,
   }, width);
 
-  var yRule = new Rule({
+  var yRule = Rule.create({
     _1: 5,
     content: '*',
     ticks: 4,
@@ -50,7 +50,7 @@ export default function renderBars({ data, width, height, parameters, loading, o
 
   var x = scaleFor(valueColumn, data.rows.map(r => valueColumn.getValue(r)), 0, xRule.size('content'), parameters['Scale']);
 
-  var keyValues = ChartUtils.completeValues(keyColumn, data.rows.map(r => keyColumn.getValue(r)), parameters['CompleteValues'], ChartUtils.insertPoint(keyColumn, valueColumn));
+  var keyValues = ChartUtils.completeValues(keyColumn, data.rows.map(r => keyColumn.getValue(r)), parameters['CompleteValues'], chartRequest.filterOptions, ChartUtils.insertPoint(keyColumn, valueColumn));
 
   var y = d3.scaleBand()
     .domain(keyValues.map(v => keyColumn.getKey(v)))
@@ -76,7 +76,7 @@ export default function renderBars({ data, width, height, parameters, loading, o
           height={y.bandwidth()}
           fill={keyColumn.getValueColor(r) ?? color(keyColumn.getValueKey(r))}
           stroke={y.bandwidth() > 4 ? '#fff' : undefined}
-          onClick={e => onDrillDown(r)}
+          onClick={e => onDrillDown(r, e)}
           cursor="pointer">
           <title>
             {keyColumn.getValueNiceName(r) + ': ' + valueColumn.getValueNiceName(r)}
@@ -96,7 +96,7 @@ export default function renderBars({ data, width, height, parameters, loading, o
               dominantBaseline="middle"
               textAnchor="end"
               fontWeight="bold"
-              onClick={e => onDrillDown(r)}
+              onClick={e => onDrillDown(r, e)}
               cursor="pointer">
               {keyColumn.getValueNiceName(r)}
             </TextEllipsis>)}
@@ -104,17 +104,17 @@ export default function renderBars({ data, width, height, parameters, loading, o
           parameters["Labels"] == "Inside" ?
             <g className="y-label" transform={translate(xRule.start('content') + labelMargin, yRule.start('content') + y.bandwidth() / 2)}>
               {orderedRows.map(r => {
-                var posx = x(valueColumn.getValue(r));
+                var posx = x(valueColumn.getValue(r))!;
                 return (
                   <TextEllipsis key={keyColumn.getValueKey(r)}
                     transform={translate(posx >= size / 2 ? 0 : posx, y(keyColumn.getValueKey(r))!)}
                     maxWidth={posx >= size / 2 ? posx : size - posx}
                     padding={labelMargin}
                     className="y-label sf-transition"
-                    fill={x(valueColumn.getValue(r)) >= size / 2 ? '#fff' : (keyColumn.getValueColor(r) ?? color(keyColumn.getValueKey(r)))}
+                    fill={x(valueColumn.getValue(r))! >= size / 2 ? '#fff' : (keyColumn.getValueColor(r) ?? color(keyColumn.getValueKey(r)))}
                     dominantBaseline="middle"
                     fontWeight="bold"
-                    onClick={e => onDrillDown(r)}
+                    onClick={e => onDrillDown(r, e)}
                     cursor="pointer">
                     {keyColumn.getValueNiceName(r)}
                   </TextEllipsis>
@@ -126,12 +126,12 @@ export default function renderBars({ data, width, height, parameters, loading, o
       {parseFloat(parameters["NumberOpacity"]) > 0 &&
         <g className="numbers-label" transform={translate(xRule.start('content'), yRule.start('content'))}>
           {orderedRows
-            .filter(r => x(valueColumn.getValue(r)) > 20)
+            .filter(r => x(valueColumn.getValue(r))! > 20)
             .map(r => {
-              var posx = x(valueColumn.getValue(r));
+              var posx = x(valueColumn.getValue(r))!;
 
               return (<TextEllipsis key={keyColumn.getValueKey(r)}
-                transform={translate(x(valueColumn.getValue(r)) / 2, y(keyColumn.getValueKey(r))! + y.bandwidth() / 2)}
+                transform={translate(x(valueColumn.getValue(r))! / 2, y(keyColumn.getValueKey(r))! + y.bandwidth() / 2)}
                 maxWidth={posx >= size / 2 ? posx : size - posx}
                 padding={labelMargin}
                 className="number-label sf-transition"
@@ -140,7 +140,7 @@ export default function renderBars({ data, width, height, parameters, loading, o
                 opacity={parameters["NumberOpacity"]}
                 textAnchor="middle"
                 fontWeight="bold"
-                onClick={e => onDrillDown(r)}
+                onClick={e => onDrillDown(r, e)}
                 cursor="pointer">
                 {valueColumn.getValueNiceName(r)}
               </TextEllipsis>);

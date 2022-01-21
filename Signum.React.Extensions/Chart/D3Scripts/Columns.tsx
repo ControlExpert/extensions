@@ -8,11 +8,14 @@ import { XKeyTicks, YScaleTicks, XTitle } from './Components/Ticks';
 import { XAxis, YAxis } from './Components/Axis';
 import { Rule } from './Components/Rule';
 import InitialMessage from './Components/InitialMessage';
+import type { ChartScriptHorizontalProps } from './Line';
 
 
-export default function renderColumns({ data, width, height, parameters, loading, onDrillDown, initialLoad }: ChartScriptProps): React.ReactElement<any> {
+export default function renderColumns(props: ChartScriptProps): React.ReactElement<any> {
 
-  var xRule = new Rule({
+  const { data, width, height, parameters, loading, onDrillDown, initialLoad, chartRequest } = props;
+
+  var xRule = Rule.create({
     _1: 5,
     title: 15,
     _2: 10,
@@ -24,8 +27,8 @@ export default function renderColumns({ data, width, height, parameters, loading
   }, width);
   //xRule.debugX(chart)
 
-  var yRule = new Rule({
-    _1: 5,
+  var yRule = Rule.create({
+    _1: 10,
     legend: 15,
     _2: 5,
     content: '*',
@@ -50,7 +53,7 @@ export default function renderColumns({ data, width, height, parameters, loading
   var keyColumn = data.columns.c0!;
   var valueColumn = data.columns.c1! as ChartColumn<number>;
 
-  var keyValues = ChartUtils.completeValues(keyColumn, data.rows.map(r => keyColumn.getValue(r)), parameters['CompleteValues'], ChartUtils.insertPoint(keyColumn, valueColumn));
+  var keyValues = ChartUtils.completeValues(keyColumn, data.rows.map(r => keyColumn.getValue(r)), parameters['CompleteValues'], chartRequest.filterOptions, ChartUtils.insertPoint(keyColumn, valueColumn));
 
   var x = d3.scaleBand()
     .domain(keyValues.map(v => keyColumn.getKey(v)))
@@ -58,11 +61,7 @@ export default function renderColumns({ data, width, height, parameters, loading
 
   var y = scaleFor(valueColumn, data.rows.map(r => valueColumn.getValue(r)), 0, yRule.size('content'), parameters["Scale"]);
   
-  var orderedRows = data.rows.orderBy(r => keyColumn.getValueKey(r));
-  var color = ChartUtils.colorCategory(parameters, orderedRows.map(r => keyColumn.getValueKey(r)!));
-
-  var size = yRule.size('content');
-  var labelMargin = 10;
+ 
 
   return (
     <svg direction="ltr" width={width} height={height}>
@@ -70,50 +69,79 @@ export default function renderColumns({ data, width, height, parameters, loading
       <XTitle xRule={xRule} yRule={yRule} keyColumn={keyColumn} />
       <YScaleTicks xRule={xRule} yRule={yRule} valueColumn={valueColumn} y={y} />
 
-      {/*PAINT CHART*/}
+      {paintColumns({ xRule, yRule, x, y, keyValues, data, parameters: props.parameters, initialLoad: props.initialLoad, onDrillDown: props.onDrillDown, colIndex: 0, colCount: 1 })}
 
-      <g className="shape" transform={translate(xRule.start('content'), yRule.end('content'))}>
+      <InitialMessage data={data} x={xRule.middle("content")} y={yRule.middle("content")} loading={loading} />
+      <XAxis xRule={xRule} yRule={yRule} />
+      <YAxis xRule={xRule} yRule={yRule} />
+    </svg>
+  );
+}
+
+
+export function paintColumns({ xRule, yRule, x, y, data, parameters, initialLoad, onDrillDown, colIndex, colCount }: ChartScriptHorizontalProps & {
+  colIndex: number, colCount: number
+}) {
+
+  var keyColumn = data.columns.c0!;
+  var valueColumn = data.columns.c1! as ChartColumn<number>;
+
+  var orderedRows = data.rows.orderBy(r => keyColumn.getValueKey(r));
+  var color = parameters["ForceColor"] ? ()=>  parameters["ForceColor"] :
+    ChartUtils.colorCategory(parameters, orderedRows.map(r => keyColumn.getValueKey(r)!));
+
+  var size = yRule.size('content');
+  var labelMargin = 10;
+
+  const bandMargin = x.bandwidth() > 20 ? 2 : 0; 
+
+  const bandwidth = ((x.bandwidth() - bandMargin * 2) / colCount);
+  const bandOffset = bandwidth * colIndex + bandMargin;
+
+  return (
+    <>
+      <g className="shape" transform={translate(xRule.start('content') + bandOffset, yRule.end('content'))}>
         {orderedRows.map(r => <rect key={keyColumn.getValueKey(r)} className="shape sf-transition"
           transform={(initialLoad ? scale(1, 0) : scale(1, 1)) + translate(x(keyColumn.getValueKey(r))!, -y(valueColumn.getValue(r))!)}
           height={y(valueColumn.getValue(r))}
-          width={x.bandwidth()}
+          width={bandwidth}
           fill={keyColumn.getValueColor(r) ?? color(keyColumn.getValueKey(r))}
           cursor="pointer"
-          stroke={x.bandwidth() > 4 ? '#fff' : undefined}
-          onClick={e => onDrillDown(r)}>
+          stroke={bandwidth > 4 ? '#fff' : undefined}
+          onClick={e => onDrillDown(r, e)}>
           <title>
             {keyColumn.getValueNiceName(r) + ': ' + valueColumn.getValueNiceName(r)}
           </title>
         </rect>)}
       </g>
 
-      {x.bandwidth() > 15 &&
+      {bandwidth > 15 &&
         (parameters["Labels"] == "Margin" ?
-          <g className="x-label" transform={translate(xRule.start('content'), yRule.start('labels'))}>
+        <g className="x-label" transform={translate(xRule.start('content') + bandOffset, yRule.start('labels'))}>
             {orderedRows.map(r => <TextEllipsis key={keyColumn.getValueKey(r)} maxWidth={yRule.size('labels')} padding={labelMargin} className="x-label sf-transition"
-              transform={translate(x(keyColumn.getValueKey(r))! + x.bandwidth() / 2, 0) + rotate(-90)}
+              transform={translate(x(keyColumn.getValueKey(r))! + bandwidth / 2, 0) + rotate(-90)}
               dominantBaseline="middle"
               fontWeight="bold"
               fill={(keyColumn.getValueColor(r) ?? color(keyColumn.getValueKey(r)))}
               textAnchor="end"
               cursor="pointer"
-              onClick={de => onDrillDown(r)}>
+              onClick={e => onDrillDown(r, e)}>
               {keyColumn.getValueNiceName(r)}
             </TextEllipsis>)}
           </g> :
           parameters["Labels"] == "Inside" ?
-            <g className="x-label" transform={translate(xRule.start('content'), yRule.end('content'))}>
+          <g className="x-label" transform={translate(xRule.start('content') + bandOffset, yRule.end('content'))}>
               {orderedRows.map(r => {
-                var posy = y(valueColumn.getValue(r));
+                var posy = y(valueColumn.getValue(r))!;
                 return (
                   <TextEllipsis key={keyColumn.getValueKey(r)} maxWidth={posy >= size / 2 ? posy : size - posy} padding={labelMargin} className="x-label sf-transition"
-                    transform={translate(x(keyColumn.getValueKey(r))! + x.bandwidth() / 2, -y(valueColumn.getValue(r))) + rotate(-90)}
+                    transform={translate(x(keyColumn.getValueKey(r))! + bandwidth / 2, -y(valueColumn.getValue(r))!) + rotate(-90)}
                     dominantBaseline="middle"
                     fontWeight="bold"
-                    fill={y(valueColumn.getValue(r)) >= size / 2 ? '#fff' : (keyColumn.getValueColor(r) ?? color(keyColumn.getValueKey(r)))}
-                    dx={y(valueColumn.getValue(r)) >= size / 2 ? -labelMargin : labelMargin}
-                    textAnchor={y(valueColumn.getValue(r)) >= size / 2 ? 'end' : 'start'}
-                    onClick={e => onDrillDown(r)}
+                    fill={y(valueColumn.getValue(r))! >= size / 2 ? '#fff' : (keyColumn.getValueColor(r) ?? color(keyColumn.getValueKey(r)))}
+                    dx={y(valueColumn.getValue(r))! >= size / 2 ? -labelMargin : labelMargin}
+                    textAnchor={y(valueColumn.getValue(r))! >= size / 2 ? 'end' : 'start'}
+                    onClick={e => onDrillDown(r, e)}
                     cursor="pointer">
                     {keyColumn.getValueNiceName(r)}
                   </TextEllipsis>);
@@ -121,26 +149,23 @@ export default function renderColumns({ data, width, height, parameters, loading
             </g> : null
         )}
 
-      {parseFloat(parameters["NumberOpacity"]) > 0 &&
-        <g className="numbers-label" transform={translate(xRule.start('content'), yRule.end('content'))}>
+      {parseFloat(parameters["NumberOpacity"]) > 0 && bandwidth > 15 &&
+        <g className="numbers-label" transform={translate(xRule.start('content') + bandOffset, yRule.end('content'))}>
           {orderedRows
-            .filter(r => y(valueColumn.getValue(r)) > 10)
+            .filter(r => y(valueColumn.getValue(r))! > 10)
             .map(r => <text key={keyColumn.getValueKey(r)} className="number-label sf-transition"
-              transform={translate(x(keyColumn.getValueKey(r))! + x.bandwidth() / 2, -y(valueColumn.getValue(r)) / 2) + rotate(-90)}
+              transform={translate(x(keyColumn.getValueKey(r))! + bandwidth / 2, -y(valueColumn.getValue(r))! / 2) + rotate(-90)}
               fill={parameters["NumberColor"] ?? "#000"}
               dominantBaseline="middle"
               opacity={parameters["NumberOpacity"]}
               textAnchor="middle"
               fontWeight="bold"
               cursor="pointer"
-              onClick={e => onDrillDown(r)}>
+              onClick={e => onDrillDown(r, e)}>
               {valueColumn.getValueNiceName(r)}
             </text>)}
         </g>}
 
-      <InitialMessage data={data} x={xRule.middle("content")} y={yRule.middle("content")} loading={loading} />
-      <XAxis xRule={xRule} yRule={yRule} />
-      <YAxis xRule={xRule} yRule={yRule} />
-    </svg>
+    </>
   );
 }

@@ -13,9 +13,9 @@ import { Rule } from './Components/Rule';
 import InitialMessage from './Components/InitialMessage';
 
 
-export default function renderStackedBars({ data, width, height, parameters, loading, onDrillDown, initialLoad }: ChartClient.ChartScriptProps): React.ReactElement<any> {
+export default function renderStackedBars({ data, width, height, parameters, loading, onDrillDown, initialLoad, chartRequest }: ChartClient.ChartScriptProps): React.ReactElement<any> {
 
-  var xRule = new Rule({
+  var xRule = Rule.create({
     _1: 5,
     title: 15,
     _2: 10,
@@ -27,8 +27,8 @@ export default function renderStackedBars({ data, width, height, parameters, loa
   }, width);
   //xRule.debugX(chart)
 
-  var yRule = new Rule({
-    _1: 5,
+  var yRule = Rule.create({
+    _1: 10,
     legend: 15,
     _2: 5,
     content: '*',
@@ -60,7 +60,7 @@ export default function renderStackedBars({ data, width, height, parameters, loa
     groupedPivotTable(data, c.c0!, c.c1, c.c2 as ChartColumn<number>);
 
 
-  var keyValues = ChartUtils.completeValues(keyColumn, pivot.rows.map(r => r.rowValue), parameters['CompleteValues'], ChartUtils.insertPoint(keyColumn, valueColumn0));
+  var keyValues = ChartUtils.completeValues(keyColumn, pivot.rows.map(r => r.rowValue), parameters['CompleteValues'], chartRequest.filterOptions, ChartUtils.insertPoint(keyColumn, valueColumn0));
 
   var y = d3.scaleBand()
     .domain(keyValues.map(v => keyColumn.getKey(v)))
@@ -72,10 +72,7 @@ export default function renderStackedBars({ data, width, height, parameters, loa
     .offset(ChartUtils.getStackOffset(pStack)!)
     .order(ChartUtils.getStackOrder(parameters["Order"])!)
     .keys(pivot.columns.map(d => d.key))
-    .value((r, k) => {
-      var v = r.values[k];
-      return v?.value ?? 0;
-    });
+    .value((r, k) => r.values[k]?.value ?? 0);
 
   var stackedSeries = stack(pivot.rows);
 
@@ -88,6 +85,7 @@ export default function renderStackedBars({ data, width, height, parameters, loa
 
   var rowsInOrder = pivot.rows.orderBy(r => keyColumn.getKey(r.rowValue));
   var color = ChartUtils.colorCategory(parameters, pivot.columns.map(s => s.key));
+  var colorByKey = pivot.columns.toObject(a => a.key, a => a.color);
 
   var format = pStack == "expand" ? d3.format(".0%") :
     pStack == "zero" ? d3.format("") :
@@ -109,12 +107,12 @@ export default function renderStackedBars({ data, width, height, parameters, loa
         {s.filter(r => r.data.values[s.key] != undefined)
           .orderBy(r => keyColumn.getKey(r.data.rowValue))
           .map(r => <rect key={keyColumn.getKey(r.data.rowValue)} className="shape sf-transition"
-            transform={translate(x(r[0]), y(keyColumn.getKey(r.data.rowValue))!) + (initialLoad ? scale(0, 1) : scale(1, 1))}
+            transform={translate(x(r[0])!, y(keyColumn.getKey(r.data.rowValue))!) + (initialLoad ? scale(0, 1) : scale(1, 1))}
             stroke={y.bandwidth() > 4 ? '#fff' : undefined}
-            fill={color(s.key)}
+            fill={colorByKey[s.key] ?? color(s.key)}
             height={y.bandwidth()}
-            width={x(r[1]) - x(r[0])}
-            onClick={e => onDrillDown(r.data.values[s.key].rowClick)}
+            width={x(r[1])! - x(r[0])!}
+            onClick={e => onDrillDown(r.data.values[s.key].rowClick, e)}
             cursor="pointer">
             <title>
               {r.data.values[s.key].valueTitle}
@@ -123,12 +121,13 @@ export default function renderStackedBars({ data, width, height, parameters, loa
 
         {y.bandwidth() > 15 && parseFloat(parameters["NumberOpacity"]) > 0 &&
           s.orderBy(r => keyColumn.getKey(r.data.rowValue))
-            .filter(r => (x(r[1]) - x(r[0])) > 20)
+            .filter(r => (x(r[1])! - x(r[0])!) > 20)
             .map(r => <text key={keyColumn.getKey(r.data.rowValue)} className="number-label sf-transition"
               transform={translate(
-                x(r[0]) * 0.5 + x(r[1]) * 0.5,
+                x(r[0])! * 0.5 + x(r[1])! * 0.5,
                 y(keyColumn.getKey(r.data.rowValue))! + y.bandwidth() / 2
               )}
+              onClick={e => onDrillDown(r.data.values[s.key].rowClick, e)}
               fill={parameters["NumberColor"]}
               dominantBaseline="middle"
               opacity={parameters["NumberOpacity"]}
@@ -145,23 +144,23 @@ export default function renderStackedBars({ data, width, height, parameters, loa
       {y.bandwidth() > 15 && pivot.columns.length > 0 && (
         parameters["Labels"] == "Margin" ?
           <g className="y-label" transform={translate(xRule.end('labels'), yRule.start('content') + y.bandwidth() / 2)}>
-            {rowsInOrder.map(r => <TextEllipsis key={keyColumn.getKey(r.rowValue)}
+            {keyValues.map(k => <TextEllipsis key={keyColumn.getKey(k)}
               maxWidth={xRule.size('labels')}
               padding={labelMargin}
               className="y-label sf-transition"
-              y={y(keyColumn.getKey(r.rowValue))!}
+              y={y(keyColumn.getKey(k))!}
               dominantBaseline="middle"
               textAnchor="end">
-              {keyColumn.getNiceName(r.rowValue)}
+              {keyColumn.getNiceName(k)}
             </TextEllipsis>)}
           </g> :
           parameters["Labels"] == "Inside" ?
             <g className="y-axis-tick-label" transform={translate(xRule.start('content'), yRule.start('content') + y.bandwidth() / 2)}>
-              {pivot.rows.map((r, i) => {
+              {keyValues.map((k, i) => {
                 var maxValue = stackedSeries[stackedSeries.length - 1][i][1];
-                var posx = x(maxValue);
-                return (<TextEllipsis key={keyColumn.getKey(r.rowValue)}
-                  transform={translate(posx >= size / 2 ? 0 : posx, y(keyColumn.getKey(r.rowValue))!)}
+                var posx = x(maxValue)!;
+                return (<TextEllipsis key={keyColumn.getKey(k)}
+                  transform={translate(posx >= size / 2 ? 0 : posx, y(keyColumn.getKey(k))!)}
                   maxWidth={posx >= size / 2 ? posx : size - posx}
                   padding={labelMargin}
                   className="y-axis-tick-label sf-chart-strong sf-transition"
@@ -170,7 +169,7 @@ export default function renderStackedBars({ data, width, height, parameters, loa
                   fill={posx >= size / 2 ? '#fff' : '#000'}
                   dominantBaseline="middle"
                   fontWeight="bold">
-                  {keyColumn.getNiceName(r.rowValue)}
+                  {keyColumn.getNiceName(k)}
                 </TextEllipsis>);
               })}
             </g> : null

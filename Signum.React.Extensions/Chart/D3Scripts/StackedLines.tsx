@@ -12,9 +12,9 @@ import { Rule } from './Components/Rule';
 import InitialMessage from './Components/InitialMessage';
 
 
-export default function renderStackedLines({ data, width, height, parameters, loading, onDrillDown, initialLoad }: ChartClient.ChartScriptProps): React.ReactElement<any> {
+export default function renderStackedLines({ data, width, height, parameters, loading, onDrillDown, initialLoad, chartRequest }: ChartClient.ChartScriptProps): React.ReactElement<any> {
 
-  var xRule = new Rule({
+  var xRule = Rule.create({
     _1: 5,
     title: 15,
     _2: 10,
@@ -27,15 +27,14 @@ export default function renderStackedLines({ data, width, height, parameters, lo
   //xRule.debugX(chart)
 
 
-  var yRule = new Rule({
-    _1: 5,
+  var yRule = Rule.create({
+    _1: 10,
     legend: 15,
     _2: 5,
     content: '*',
     ticks: 4,
     _3: 5,
-    labels0: 15,
-    labels1: 15,
+    labels: 30,
     _4: 10,
     title: 15,
     _5: 5,
@@ -59,7 +58,7 @@ export default function renderStackedLines({ data, width, height, parameters, lo
     toPivotTable(data, c.c0!, [c.c2, c.c3, c.c4, c.c5, c.c6].filter(cn => cn != undefined) as ChartColumn<number>[]) :
     groupedPivotTable(data, c.c0!, c.c1, c.c2 as ChartColumn<number>);
 
-  var keyValues: unknown[] = ChartUtils.completeValues(keyColumn, pivot.rows.map(r => r.rowValue), parameters['CompleteValues'], ChartUtils.insertPoint(keyColumn, valueColumn0));
+  var keyValues: unknown[] = ChartUtils.completeValues(keyColumn, pivot.rows.map(r => r.rowValue), parameters['CompleteValues'], chartRequest.filterOptions, ChartUtils.insertPoint(keyColumn, valueColumn0));
 
   var x = d3.scaleBand()
     .domain(keyValues.map(v => keyColumn.getKey(v)))
@@ -73,15 +72,7 @@ export default function renderStackedLines({ data, width, height, parameters, lo
     .offset(ChartUtils.getStackOffset(pStack)!)
     .order(ChartUtils.getStackOrder(parameters["Order"])!)
     .keys(pivot.columns.map(d => d.key))
-    .value((r, k) => {
-
-      var row = rowsByKey[keyColumn.getKey(r)];
-      if (row == null)
-        return 0;
-
-      var v = row.values[k];
-      return v?.value ?? 0;
-    });
+    .value((r, k) => rowsByKey[keyColumn.getKey(r)]?.values[k]?.value ?? 0);
 
   var stackedSeries = stack(keyValues);
 
@@ -93,13 +84,14 @@ export default function renderStackedLines({ data, width, height, parameters, lo
     .range([0, yRule.size('content')]);
 
   var color = ChartUtils.colorCategory(parameters, pivot.columns.map(s => s.key));
+  var colorByKey = pivot.columns.toObject(a => a.key, a => a.color);
 
   var pInterpolate = parameters["Interpolate"];
 
   var area = d3.area<d3.SeriesPoint<unknown>>()
     .x(v => x(keyColumn.getKey(v.data))!)
-    .y0(v => -y(v[0]))
-    .y1(v => -y(v[1]))
+    .y0(v => -y(v[0])!)
+    .y1(v => -y(v[1])!)
     .curve(ChartUtils.getCurveByName(pInterpolate) as d3.CurveFactory);
 
   var columnsByKey = pivot.columns.toObject(a => a.key);
@@ -117,7 +109,7 @@ export default function renderStackedLines({ data, width, height, parameters, lo
 
       {stackedSeries.orderBy(s => s.key).map(s => <g key={s.key} className="shape-serie"
         transform={translate(xRule.start('content') + x.bandwidth() / 2, yRule.end('content'))}>
-        <path className="shape sf-transition" stroke={color(s.key)} fill={color(s.key)} shapeRendering="initial" d={area(s)!} transform={(initialLoad ? scale(1, 0) : scale(1, 1))}>
+        <path className="shape sf-transition" stroke={colorByKey[s.key] ?? color(s.key)} fill={colorByKey[s.key] ?? color(s.key)} shapeRendering="initial" d={area(s)!} transform={(initialLoad ? scale(1, 0) : scale(1, 1))}>
           <title>
             {columnsByKey[s.key].niceName!}
           </title>
@@ -128,15 +120,15 @@ export default function renderStackedLines({ data, width, height, parameters, lo
         transform={translate(xRule.start('content') + x.bandwidth() / 2, yRule.end('content'))}>
 
         {s.orderBy(v => keyColumn.getKey(v.data))
-          .filter(v => rowsByKey[keyColumn.getKey(v.data)] && rowsByKey[keyColumn.getKey(v.data)].values[s.key] != undefined)
+          .filter(v => rowsByKey[keyColumn.getKey(v.data)]?.values[s.key] != undefined)
           .map(v => <rect key={keyColumn.getKey(v.data)} className="point sf-transition"
-            transform={translate(x(keyColumn.getKey(v.data))! - rectRadious, -y(v[1]))}
+            transform={translate(x(keyColumn.getKey(v.data))! - rectRadious, -y(v[1])!)}
             width={2 * rectRadious}
-            height={y(v[1]) - y(v[0])}
+            height={y(v[1])! - y(v[0])!}
             fill="#fff"
             fillOpacity={.1}
             stroke="none"
-            onClick={e => onDrillDown(rowsByKey[keyColumn.getKey(v.data)].values[s.key].rowClick)}
+            onClick={e => onDrillDown(rowsByKey[keyColumn.getKey(v.data)].values[s.key].rowClick, e)}
             cursor="pointer">
             <title>
               {rowsByKey[keyColumn.getKey(v.data)].values[s.key].valueTitle}
@@ -145,13 +137,14 @@ export default function renderStackedLines({ data, width, height, parameters, lo
 
         {x.bandwidth() > 15 && parseFloat(parameters["NumberOpacity"]) > 0 &&
           s.orderBy(v => keyColumn.getKey(v.data))
-            .filter(v => rowsByKey[keyColumn.getKey(v.data)] && rowsByKey[keyColumn.getKey(v.data)].values[s.key] != undefined && (y(v[1]) - y(v[0])) > 10)
+            .filter(v => rowsByKey[keyColumn.getKey(v.data)]?.values[s.key] != undefined && (y(v[1])! - y(v[0])!)! > 10)
             .map(v => <text key={keyColumn.getKey(v.data)}
               className="number-label sf-transition"
-              transform={translate(x(keyColumn.getKey(v.data))!, -y(v[1]) * 0.5 - y(v[0]) * 0.5)}
+              transform={translate(x(keyColumn.getKey(v.data))!, -y(v[1])! * 0.5 - y(v[0])! * 0.5)}
               fill={parameters["NumberColor"]}
               dominantBaseline="middle"
               opacity={parameters["NumberOpacity"]}
+              onClick={e => onDrillDown(rowsByKey[keyColumn.getKey(v.data)].values[s.key].rowClick, e)}
               textAnchor="middle"
               fontWeight="bold">
               {rowsByKey[keyColumn.getKey(v.data)].values[s.key].valueNiceName}

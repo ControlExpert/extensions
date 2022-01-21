@@ -4,7 +4,7 @@ import { TypeContext } from '@framework/TypeContext'
 import { EmailMessageEntity, EmailAttachmentEmbedded, EmailReceptionMixin, EmailFileType } from '../Signum.Entities.Mailing'
 import { EmailTemplateMessage } from '../Signum.Entities.Mailing'
 import { FileLine } from '../../Files/FileLine'
-import IFrameRenderer from './IFrameRenderer'
+import IFrameRenderer from './IframeRenderer'
 import HtmlCodemirror from '../../Codemirror/HtmlCodemirror'
 import { tryGetMixin } from "@framework/Signum.Entities";
 import { Tabs, Tab } from 'react-bootstrap';
@@ -90,10 +90,12 @@ export default function EmailMessage(p : { ctx: TypeContext<EmailMessageEntity> 
 
         <ValueLine ctx={ctx.subCtx(f => f.subject, { labelColumns: 1 })} />
         <ValueLine ctx={ctx.subCtx(f => f.isBodyHtml)} inlineCheckbox={true} onChange={() => forceUpdate()} />
-        {ctx.value.isBodyHtml ? <div className="code-container"><HtmlCodemirror ctx={ctx.subCtx(f => f.body)} /></div> :
-            <div>
-              <ValueLine ctx={ctx.subCtx(f => f.body)} valueLineType="TextArea" valueHtmlAttributes={{ style: { height: "180px" } }} formGroupStyle="SrOnly" />
-            </div>
+        {ctx.value.isBodyHtml ? <div className="code-container">
+          <HtmlCodemirror ctx={ctx.subCtx(f => f.body.text)} />
+        </div> :
+          <div>
+            <ValueLine ctx={ctx.subCtx(f => f.body.text)} valueLineType="TextArea" valueHtmlAttributes={{ style: { height: "180px" } }} formGroupStyle="SrOnly" />
+          </div>
         }
         <EmailMessageComponent ctx={ctx} invalidate={() => forceUpdate()} />
       </Tab>
@@ -131,7 +133,7 @@ export function EmailMessageComponent(p : EmailMessageComponentProps){
             EmailTemplateMessage.HidePreview.niceToString() :
             EmailTemplateMessage.ShowPreview.niceToString()}
         </a>
-        {showPreview && <IFrameRenderer style={{ width: "100%", height: "150px" }} html={ec.value.body} />}
+        {showPreview && <IFrameRenderer style={{ width: "100%", height: "150px" }} html={ec.value.body.text} />}
       </div>
     </div>
   );

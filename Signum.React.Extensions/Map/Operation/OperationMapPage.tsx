@@ -1,20 +1,18 @@
 import * as React from 'react'
 import { Location } from 'history'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import * as QueryString from "query-string"
 import { RouteComponentProps } from 'react-router'
 import { Dic } from '@framework/Globals'
-import * as Navigator from '@framework/Navigator'
+import * as AppContext from '@framework/AppContext'
 import { JavascriptMessage } from '@framework/Signum.Entities'
 import { MapMessage } from '../Signum.Entities.Map'
 import * as MapClient from '../MapClient'
 import { OperationMapInfo, OperationMapD3, ForceNode, ForceLink, Transition } from './OperationMap'
 import "./operationMap.css"
-import { useExpand, useAPI, useSize } from '../../../../Framework/Signum.React/Scripts/Hooks'
+import { useAPI, useSize } from '@framework/Hooks'
+import { useExpand } from '@framework/AppContext'
+import { QueryString } from '@framework/QueryString'
 
-interface OperationMapPageProps extends RouteComponentProps<{ type: string }> {
-
-}
 
 interface OperationMapPropsState {
   operationMapInfo?: OperationMapInfo;
@@ -56,7 +54,7 @@ function getParsedQuery(loc: Location): ParsedQueryString {
   return result;
 }
 
-export default function OperationMapPage(p: OperationMapPageProps) {
+export default function OperationMapPage(p: RouteComponentProps<{ type: string }>) {
 
   useExpand();
 
@@ -84,7 +82,7 @@ export default function OperationMapPage(p: OperationMapPageProps) {
 
     var query = { ...tables, color: color };
 
-    const url = Navigator.history.createHref({
+    const url = AppContext.history.createHref({
       pathname: "~/map/" + p.match.params.type,
       search: QueryString.stringify(query)
     });
@@ -113,15 +111,27 @@ export default function OperationMapPage(p: OperationMapPageProps) {
       </div>
     );
   }
-  if (Navigator.Expander.onGetExpanded && !Navigator.Expander.onGetExpanded())
+  if (AppContext.Expander.onGetExpanded && !AppContext.Expander.onGetExpanded())
     return null;
 
   return (
-    <div ref={setContainer}>
+    <div style={{display: "flex", flexDirection: "column", flexGrow: 1}}>
       {renderFilter()}
-      {!(operationMapInfo && size && nodes) ?
+      {!(operationMapInfo && nodes) ?
         <span>{JavascriptMessage.loading.niceToString()}</span> :
-        <OperationMapRenderer operationMapInfo={operationMapInfo} nodes={nodes} color={color!} height={size.height!} width={size.width!} queryName={p.match.params.type} />}
+        <div ref={setContainer} style={{display: "flex", flexGrow: 1}}>
+          {size?.height && size?.width &&
+            <OperationMapRenderer 
+              operationMapInfo={operationMapInfo} 
+              nodes={nodes} 
+              color={color!} 
+              height={size.height}
+              width={size.width} 
+              queryName={p.match.params.type}
+            />
+          }
+        </div>
+      }
     </div>
   );
 }
@@ -137,14 +147,14 @@ export interface OperationMapRendererProps {
 
 export function OperationMapRenderer(p: OperationMapRendererProps) {
 
-  const svg = React.useRef<SVGSVGElement>(null);
+  const svgRef = React.useRef<SVGSVGElement>(null);
   const mapD3 = React.useRef<OperationMapD3 | null>(null);
 
   React.useEffect(() => {
     fixSchemaMap(p.operationMapInfo, p.nodes);
-    mapD3.current = new OperationMapD3(svg.current!, p.queryName, p.operationMapInfo, p.color, p.width, p.height);
+    mapD3.current = new OperationMapD3(svgRef.current!, p.queryName, p.operationMapInfo, p.color, p.width, p.height);
     return () => mapD3.current!.stop();
-  });
+  }, []);
 
   React.useEffect(() => {
     mapD3.current!.setColor(p.color);
@@ -191,13 +201,10 @@ export function OperationMapRenderer(p: OperationMapRendererProps) {
     });
   }
 
-  function componentWillReceiveProps(newProps: OperationMapRendererProps) {
-  }
-
 
   return (
     <div id="map" style={{ backgroundColor: "transparent", width: "100%", height: p.height + "px" }}>
-      <svg id="svgMap" ref={svg => svg = svg!}>
+      <svg id="svgMap" ref={svgRef}>
         <defs>
           <marker id="normal_arrow" viewBox="0 -5 10 10" refX="10" refY="0" markerWidth="10" markerHeight="10" orient="auto">
             <path fill="gray" d="M0,0L0,-5L10,0L0,5L0,0" />

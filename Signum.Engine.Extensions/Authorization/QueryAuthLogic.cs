@@ -58,7 +58,7 @@ namespace Signum.Engine.Authorization
                     string replacementKey = "AuthRules:" + typeof(QueryEntity).Name;
 
                     replacements.AskForReplacements(
-                        x.Element("Queries").Elements("Role").SelectMany(r => r.Elements("Query")).Select(p => p.Attribute("Resource").Value).ToHashSet(),
+                        x.Element("Queries")!.Elements("Role").SelectMany(r => r.Elements("Query")).Select(p => p.Attribute("Resource")!.Value).ToHashSet(),
                         QueryLogic.QueryNames.Keys.ToHashSet(),
                         replacementKey);
 
@@ -219,8 +219,11 @@ namespace Signum.Engine.Authorization
         {
             return key =>
             {
+                if (AuthLogic.GetDefaultAllowed(role))
+                    return QueryAllowed.Allow;
+
                 if (!BasicPermission.AutomaticUpgradeOfQueries.IsAuthorized(role))
-                    return AuthLogic.GetDefaultAllowed(role) ? QueryAllowed.Allow: QueryAllowed.None;
+                    return QueryAllowed.None;
 
                 var maxUp = QueryAuthLogic.MaxAutomaticUpgrade.TryGetS(key);
 

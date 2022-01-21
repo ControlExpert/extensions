@@ -72,7 +72,7 @@ namespace Signum.Engine.Word
 
         public virtual List<Filter> GetFilters(QueryDescription qd)
         {
-            var imp = qd.Columns.SingleEx(a => a.IsEntity).Implementations.Value;
+            var imp = qd.Columns.SingleEx(a => a.IsEntity).Implementations!.Value;
 
             if (imp.IsByAll && typeof(Entity).IsAssignableFrom(typeof(T)) || imp.Types.Contains(typeof(T)))
                 return new List<Filter>
@@ -186,7 +186,7 @@ namespace Signum.Engine.Word
                         dbWordModels, 
                         registeredWordModels.Keys, 
                         swr => swr.FullClassName, 
-                        type => type.FullName,
+                        type => type.FullName!,
                         (swr, type) => KeyValuePair.Create(type, swr), 
                         "caching " + nameof(WordModelEntity)).ToDictionary();
                 }, new InvalidateWith(typeof(WordModelEntity)));
@@ -219,6 +219,7 @@ namespace Signum.Engine.Word
 
             template.Model = wordModel;
             template.Query = QueryLogic.GetQueryEntity(info.QueryName);
+            template.ParseData(QueryLogic.Queries.QueryDescription(info.QueryName));
 
             return template;
         }
@@ -268,9 +269,13 @@ namespace Signum.Engine.Word
                 }
             }
 
+            var ci = WordTemplateLogic.GetCultureInfo != null
+                ? WordTemplateLogic.GetCultureInfo(entity)
+                : CultureInfo.CurrentCulture;
+            
             var isAllowed = Schema.Current.GetInMemoryFilter<WordTemplateEntity>(userInterface: false);
             var candidates = templates.Where(isAllowed).Where(t => t.IsApplicable(entity));
-            return GetTemplate(candidates, model, CultureInfo.CurrentCulture) ??
+            return GetTemplate(candidates, model, ci) ??
                 GetTemplate(candidates, model, CultureInfo.CurrentCulture.Parent) ??
                 candidates.SingleEx(
                     () => $"No active WordTemplate for {registeredWordModels} in {CultureInfo.CurrentCulture} or {CultureInfo.CurrentCulture.Parent}",

@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { IconProp } from '@fortawesome/fontawesome-svg-core'
 import { ajaxGet } from '@framework/Services';
 import { EntitySettings } from '@framework/Navigator'
+import * as AppContext from '@framework/AppContext'
 import * as Navigator from '@framework/Navigator'
 import * as Finder from '@framework/Finder'
 import { Lite, Entity } from '@framework/Signum.Entities'
@@ -19,7 +20,7 @@ export function start(options: { routes: JSX.Element[] }, ...configs: ToolbarCon
   Navigator.addSettings(new EntitySettings(ToolbarMenuEntity, t => import('./Templates/ToolbarMenu')));
   Navigator.addSettings(new EntitySettings(ToolbarElementEmbedded, t => import('./Templates/ToolbarElement')));
 
-  Finder.addSettings({ queryName: ToolbarEntity, defaultOrderColumn: ToolbarEntity.token(a => a.priority), defaultOrderType: "Descending" });
+  Finder.addSettings({ queryName: ToolbarEntity, defaultOrders: [{ token: ToolbarEntity.token(a => a.priority), orderType: "Descending" }] });
 
   Constructor.registerConstructor(ToolbarElementEmbedded, tn => ToolbarElementEmbedded.New({ type: "Item" }));
 
@@ -57,7 +58,7 @@ export abstract class ToolbarConfig<T extends Entity> {
     e.preventDefault();
     e.persist();
     this.navigateTo(res).then(url => {
-      Navigator.pushOrOpenInTab(url, e);
+      AppContext.pushOrOpenInTab(url, e);
     }).done();
   }
 }

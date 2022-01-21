@@ -29,8 +29,7 @@ modules.React.useEffect(() => {
 });`;
   modules["Components"] = "";
   modules["Globals"] = "";
-  modules["Navigator"] = `modules.Navigator.navigate(e);
-modules.Navigaor.view(e);
+  modules["Navigator"] = `modules.Navigator.view(e);
 modules.Navigator.API.fetchEntity("${p.cleanName}", [id]).then(entity => { /* do something here ... */ }).done();
 modules.Navigator.API.fetchAndForget([lite]).then(entity => { /* do something here ... */ }).done();
 
@@ -91,7 +90,7 @@ modules.Services.ajaxPost({ url: '~/api/dynamic/getData' }, data: null)
   modules["TreeClient"] = "";
   modules["AutoCompleteConfig"] = `new modules.AutoCompleteConfig.LiteAutocompleteConfig((signal, subStr) => [Custom API call here ...], /*requiresInitialLoad:*/ false, /*showType:*/ false)`;
   modules["Hooks"] = `const forceUpdate = modules.Hooks.useForceUpdate();
-const value = modules.Hooks.useAPI(undefined /*default value*/, [/*Keys*/], signal => Your calling API is here);
+const value = modules.Hooks.useAPI(signal => Your API calling here, [/*deps*/], options? /*: APIHookOptions*/);
 `;
   modules["FontAwesomeIcon"] = `modules.React.createElement(modules.FontAwesomeIcon, { icon: "...", color: "..." })`;
   modules["SelectorModal"] = `modules.SelectorModal.default.chooseElement<T>(/*options:*/ T[], config? /*: SelectorConfig<T>*/)
@@ -107,6 +106,10 @@ modules.SelectorModal.default.chooseType(/*options:*/ ["${p.cleanName}", ....].m
     return undefined;
   /* do something here ... */
 }).done();
+
+//interface APIHookOptions {
+//  avoidReset?: boolean;
+//}
 
 //export interface SelectorConfig<T> {
 //  buttonName?: (val: T) => string;
@@ -255,7 +258,7 @@ modules.Finder.getOrAddSettings("${p.cleanName}") /*: QuerySettings*/
 `;
   }
   return (
-    <DropdownButton id="modules" size="xs" variant="info" title={DynamicViewMessage.ModulesHelp.niceToString()}>
+    <DropdownButton id="modules" size={"xs" as any} variant="info" title={DynamicViewMessage.ModulesHelp.niceToString()}>
       {Dic.getKeys(globalModules)
         .orderBy(a => p.clientCode && !clientModules[a])
         .map((moduleName, i) => <Dropdown.Item style={{ paddingTop: "0", paddingBottom: "0" }} key={i} onClick={() => handleModulesClick(moduleName)}>

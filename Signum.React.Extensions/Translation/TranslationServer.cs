@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 using Signum.React.Facades;
 using Signum.Entities.Translation;
 using Microsoft.AspNetCore.Builder;
+using Signum.Engine.Authorization;
+using Signum.Utilities;
 using Microsoft.AspNetCore.Http;
 
 namespace Signum.React.Translation
@@ -17,7 +19,7 @@ namespace Signum.React.Translation
 
         public static void Start(IApplicationBuilder app, ITranslator translator)
         {
-            ReflectionServer.RegisterLike(typeof(TranslationMessage));
+            ReflectionServer.RegisterLike(typeof(TranslationMessage), () => TranslationPermission.TranslateCode.IsAuthorized() || TranslationPermission.TranslateInstances.IsAuthorized());
 
             SignumControllerFactory.RegisterArea(MethodInfo.GetCurrentMethod());
             Translator = translator;
@@ -28,19 +30,23 @@ namespace Signum.React.Translation
             var acceptedLanguages = actionContext.HttpContext.Request.GetTypedHeaders().AcceptLanguage;
             foreach (var lang in acceptedLanguages.Select(l => l.Value))
             {
-                var cleanLang = lang.Value.Contains('-') ? lang.Value.Split('-')[0] : lang.Value;
-                var culture = CultureInfoLogic.ApplicationCultures
-                    .FirstOrDefault(ci => ci.Name.StartsWith(cleanLang));
-                if (culture != null)
-                    return culture;
+                var dashIndex = lang.IndexOf('-');
+                var cleanLang = dashIndex == -1 ? new string(lang) : new string(lang.AsSpan().Slice(0, dashIndex));
+
+                if (cleanLang != null)
+                {
+                    var culture = CultureInfoLogic.ApplicationCultures.FirstOrDefault(ci => ci.Name.StartsWith(cleanLang));
+
+                    if (culture != null)
+                        return culture;
+                }
             }
             return null;
         }
 
-
         public static string? ReadLanguageCookie(ActionContext ac)
         {
-            return ac.HttpContext.Request.Cookies.TryGetValue("language", out string value) ? value : null;
+            return ac.HttpContext.Request.Cookies.TryGetValue("language", out string? value) ? value : null;
         }
     }
 }

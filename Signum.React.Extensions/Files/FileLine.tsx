@@ -10,19 +10,19 @@ import { FileDownloader, FileDownloaderConfiguration, DownloadBehaviour } from '
 import { FileUploader }  from './FileUploader'
 
 import "./Files.css"
-import { useController } from '../../../Framework/Signum.React/Scripts/Lines/LineBase'
+import { useController } from '@framework/Lines/LineBase'
 
 export { FileTypeSymbol };
 
 export interface FileLineProps extends EntityBaseProps {
   ctx: TypeContext<ModifiableEntity & IFile | Lite<IFile & Entity> | undefined | null>;
   download?: DownloadBehaviour;
+  showFileIcon?: boolean;
   dragAndDrop?: boolean;
   dragAndDropMessage?: string;
   fileType?: FileTypeSymbol;
   accept?: string;
   configuration?: FileDownloaderConfiguration<IFile>;
-  helpText?: React.ReactChild;
   maxSizeInBytes?: number;
 }
 
@@ -33,7 +33,7 @@ export class FileLineController extends EntityBaseController<FileLineProps>{
 
     super.getDefaultProps(state);
 
-    const m = state.ctx.propertyRoute.member;
+    const m = state.ctx.propertyRoute?.member;
     if (m?.defaultFileTypeInfo) {
 
       if (state.fileType == null)
@@ -78,7 +78,7 @@ export const FileLine = React.memo(React.forwardRef(function FileLine(props: Fil
           dragAndDropMessage={p.dragAndDropMessage}
           fileType={p.fileType}
           onFileLoaded={c.handleFileLoaded}
-          typeName={p.ctx.propertyRoute.typeReference().name}
+          typeName={p.ctx.propertyRoute!.typeReference().name}
           buttonCss={p.ctx.buttonClass}
           divHtmlAttributes={{ className: "sf-file-line-new" }} />
       }
@@ -97,6 +97,7 @@ export const FileLine = React.memo(React.forwardRef(function FileLine(props: Fil
       <FileDownloader
         configuration={p.configuration}
         download={p.download}
+        showFileIcon={p.showFileIcon}
         entityOrLite={val}
         htmlAttributes={{ className: classes(ctx.formControlClass, "file-control") }} />;
 
@@ -117,6 +118,7 @@ export const FileLine = React.memo(React.forwardRef(function FileLine(props: Fil
 }), (prev, next) => FileLineController.propEquals(prev, next));
 
 (FileLine as any).defaultProps = {
-  download: "SaveAs",
-  dragAndDrop: true
+  download: "ViewOrSave",
+  dragAndDrop: true,
+  showFileIcon: true
 } as FileLineProps;

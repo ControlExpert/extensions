@@ -1,6 +1,9 @@
+using Newtonsoft.Json;
 using Signum.Engine;
 using Signum.Engine.Basics;
+using Signum.Engine.Engine;
 using Signum.Engine.Maps;
+using Signum.Engine.PostgresCatalog;
 using Signum.Engine.SchemaInfoTables;
 using Signum.Entities;
 using Signum.Entities.Basics;
@@ -63,6 +66,7 @@ namespace Signum.React.Maps
                 }
             }
 
+
             var normalEdges = (from t in s.Tables.Values
                                where s.IsAllowed(t.Type, true) == null
                                from kvp in t.DependentTables()
@@ -73,7 +77,8 @@ namespace Signum.React.Maps
                                    fromTable = t.Name.ToString(),
                                    toTable = kvp.Key.Name.ToString(),
                                    lite = kvp.Value.IsLite,
-                                   nullable = kvp.Value.IsNullable
+                                   nullable = kvp.Value.IsNullable,
+                                   isVirtualMListBackReference = VirtualMList.RegisteredVirtualMLists.TryGetC(kvp.Key.Type)?.Values.Any(a => a.BackReferenceRoute.Equals(kvp.Value.PropertyRoute)) ?? false
                                }).ToList();
 
             var mlistEdges = (from t in s.Tables.Values
@@ -116,20 +121,38 @@ namespace Signum.React.Maps
 
         static Dictionary<ObjectName, RuntimeStats> GetRuntimeStats()
         {
+            var isPostgres = Schema.Current.Settings.IsPostgres;
             Dictionary<ObjectName, RuntimeStats> result = new Dictionary<ObjectName, RuntimeStats>();
             foreach (var dbName in Schema.Current.DatabaseNames())
             {
                 using (Administrator.OverrideDatabaseInSysViews(dbName))
                 {
-                    var dic = Database.View<SysTables>().Select(t => KeyValuePair.Create(
-                        new ObjectName(new SchemaName(dbName, t.Schema().name), t.name),
-                        new RuntimeStats
-                        {
-                            rows = ((int?)t.Indices().SingleOrDefault(a => a.type == (int)DiffIndexType.Clustered).Partition().rows) ?? 0,
-                            total_size_kb = t.Indices().SelectMany(i => i.Partition().AllocationUnits()).Sum(a => a.total_pages) * 8
-                        })).ToDictionary();
+                    if (isPostgres)
+                    {
+                        var dic = (from ns in Database.View<PgNamespace>()
+                                   where !PostgresCatalogSchema.systemSchemas.Contains(ns.nspname)
+                                   from t in ns.Tables()
+                                   select KeyValuePair.Create(new ObjectName(new SchemaName(dbName, ns.nspname, isPostgres), t.relname, isPostgres),
+                                   new RuntimeStats
+                                   {
+                                       rows = t.reltuples,
+                                       total_size_kb = PostgresFunctions.pg_total_relation_size(t.oid) / 1024
+                                   })).ToDictionary();
 
-                    result.AddRange(dic);
+                        result.AddRange(dic);
+                    }
+                    else
+                    {
+                        var dic = Database.View<SysTables>().Select(t => KeyValuePair.Create(
+                            new ObjectName(new SchemaName(dbName, t.Schema().name, isPostgres), t.name, isPostgres),
+                            new RuntimeStats
+                            {
+                                rows = ((int?)t.Indices().SingleOrDefault(a => a.type == (int)DiffIndexType.Clustered)!.Partition()!.rows) ?? 0,
+                                total_size_kb = t.Indices().SelectMany(i => i.Partition()!.AllocationUnits()).Sum(a => a.total_pages) * 8
+                            })).ToDictionary();
+
+                        result.AddRange(dic);
+                    }
                 }
             }
             return result;
@@ -200,6 +223,8 @@ namespace Signum.React.Maps
         public string toTable;
         public bool nullable;
         public bool lite;
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public bool isVirtualMListBackReference;
     }
 
     public class MapColorProviderInfo

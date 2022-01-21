@@ -16,7 +16,7 @@ namespace Signum.React.Selenium
         public SearchPageProxy(RemoteWebDriver selenium)
         {
             this.Selenium = selenium;
-            this.SearchControl = new SearchControlProxy(selenium.WaitElementVisible(By.ClassName("sf-search-control")));
+            this.SearchControl = new SearchControlProxy(selenium.WaitElementVisible(By.CssSelector(".sf-search-page .sf-search-control")));
         }
 
         public FrameModalProxy<T> Create<T>() where T : ModifiableEntity
@@ -24,7 +24,7 @@ namespace Signum.React.Selenium
             var popup = SearchControl.CreateButton.Find().CaptureOnClick();
 
             if (SelectorModalProxy.IsSelector(popup))
-                popup = popup.GetDriver().CapturePopup(() => SelectorModalProxy.Select(popup, typeof(T)));
+                popup = popup.AsSelectorModal().SelectAndCapture<T>();
 
             return new FrameModalProxy<T>(popup);
         }

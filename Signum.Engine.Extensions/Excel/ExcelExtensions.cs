@@ -67,7 +67,7 @@ namespace Signum.Engine.Excel
         {
             WorkbookPart wbPart = document.WorkbookPart;
 
-            Sheet theSheet = wbPart.Workbook.Descendants<Sheet>().
+            Sheet? theSheet = wbPart.Workbook.Descendants<Sheet>().
               Where(s => s.Id == sheetId).FirstOrDefault();
 
             if (theSheet == null)
@@ -83,19 +83,17 @@ namespace Signum.Engine.Excel
 
         public static Cell FindCell(this Worksheet worksheet, string addressName)
         {
-            return worksheet.Descendants<Cell>().
-              Where(c => c.CellReference == addressName).FirstOrDefault();
+            return worksheet.Descendants<Cell>().FirstEx(c => c.CellReference == addressName);
         }
 
         public static Cell FindCell(this SheetData sheetData, string addressName)
         {
-            return sheetData.Descendants<Cell>().
-              Where(c => c.CellReference == addressName).FirstOrDefault();
+            return sheetData.Descendants<Cell>().FirstEx(c => c.CellReference == addressName);
         }
 
         public static string GetCellValue(this SpreadsheetDocument document, Worksheet worksheet, string addressName)
         {
-            Cell theCell = worksheet.Descendants<Cell>().
+            Cell? theCell = worksheet.Descendants<Cell>().
               Where(c => c.CellReference == addressName).FirstOrDefault();
 
             // If the cell doesn't exist, return an empty string:
@@ -142,12 +140,12 @@ namespace Signum.Engine.Excel
             return value;
         }
 
-        public static void SetCellValue(this Cell cell, object value, Type type)
+        public static void SetCellValue(this Cell cell, object? value, Type type)
         {
             if(type == typeof(string))
             {
                 cell.RemoveAllChildren();
-                cell.Append(new InlineString(new Text((string)value)));
+                cell.Append(new InlineString(new Text((string?)value)));
                 cell.DataType = CellValues.InlineString;
             }
             else
@@ -187,7 +185,7 @@ namespace Signum.Engine.Excel
         {
             WorkbookPart wbPart = document.WorkbookPart;
 
-            Sheet theSheet = wbPart.Workbook.Descendants<Sheet>().
+            Sheet? theSheet = wbPart.Workbook.Descendants<Sheet>().
               Where(s => s.Id == sheetId).FirstOrDefault();
 
             if (theSheet == null)
@@ -203,7 +201,7 @@ namespace Signum.Engine.Excel
         {
             WorkbookPart wbPart = document.WorkbookPart;
 
-            Sheet theSheet = wbPart.Workbook.Descendants<Sheet>().
+            Sheet? theSheet = wbPart.Workbook.Descendants<Sheet>().
               Where(s => s.Name == sheetName).FirstOrDefault();
 
             if (theSheet == null)

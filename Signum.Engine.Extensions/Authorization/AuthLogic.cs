@@ -17,16 +17,19 @@ using System.IO;
 using Signum.Engine.Mailing;
 using Signum.Engine.Scheduler;
 using Signum.Entities.Mailing;
-using Signum.Engine;
-using System.Linq.Expressions;
+using Signum.Engine.Cache;
 
 namespace Signum.Engine.Authorization
 {
     public static class AuthLogic
     {
         public static event Action<UserEntity>? UserLogingIn;
-        public static event Func<string?>? LoginMessage;
         public static ICustomAuthorizer? Authorizer;
+        
+        /// <summary>
+        /// Gets or sets the number of failed login attempts allowed before a user is locked out.
+        /// </summary>
+        public static int? MaxFailedLoginAttempts { get; set; }
 
         public static string? SystemUserName { get; private set; }
         static ResetLazy<UserEntity?> systemUserLazy = GlobalLazy.WithoutInvalidations(() => SystemUserName == null ? null :
@@ -47,12 +50,10 @@ namespace Signum.Engine.Authorization
             get { return anonymousUserLazy.Value; }
         }
 
-        static Expression<Func<RoleEntity, IQueryable<UserEntity>>> UsersExpression = r => 
+        [AutoExpressionField]
+        public static IQueryable<UserEntity> Users(this RoleEntity r) => 
             As.Expression(() => Database.Query<UserEntity>().Where(u => u.Role.Is(r)));
         
-        [ExpressionField(nameof(UsersExpression))]
-        public static IQueryable<UserEntity> Users(this RoleEntity r) => UsersExpression.Evaluate(r);
-
         static ResetLazy<DirectedGraph<Lite<RoleEntity>>> roles = null!;
         static ResetLazy<DirectedGraph<Lite<RoleEntity>>> rolesInverse = null!;
         static ResetLazy<Dictionary<string, Lite<RoleEntity>>> rolesByName = null!;
@@ -130,18 +131,6 @@ namespace Signum.Engine.Authorization
 
                 sb.Schema.EntityEvents<RoleEntity>().Saving += Schema_Saving;
 
-                QueryLogic.Queries.Register(RoleQuery.RolesReferedBy, () =>
-                    from r in Database.Query<RoleEntity>()
-                    from rc in r.Roles
-                    select new
-                    {
-                        Entity = r,
-                        r.Id,
-                        r.Name,
-                        Refered = rc,
-                    });
-
-
                 UserGraph.Register();
                 
                 EmailModelLogic.RegisterEmailModel<UserLockedMail>(() => new EmailTemplateEntity
@@ -174,7 +163,7 @@ namespace Signum.Engine.Authorization
 
                     if (problems.Count > 0)
                         throw new ApplicationException(
-                            AuthMessage._0CyclesHaveBeenFoundInTheGraphOfRolesDueToTheRelationships.NiceToString().FormatWith(problems.Count) +
+                            AuthAdminMessage._0CyclesHaveBeenFoundInTheGraphOfRolesDueToTheRelationships.NiceToString().FormatWith(problems.Count) +
                             problems.ToString("\r\n"));
                 }
             }
@@ -196,7 +185,7 @@ namespace Signum.Engine.Authorization
 
                 if (problems.Count > 0)
                     throw new ApplicationException(
-                        AuthMessage._0CyclesHaveBeenFoundInTheGraphOfRolesDueToTheRelationships.NiceToString().FormatWith(problems.Count) +
+                        AuthAdminMessage._0CyclesHaveBeenFoundInTheGraphOfRolesDueToTheRelationships.NiceToString().FormatWith(problems.Count) +
                         problems.ToString("\r\n"));
 
                 return newRoles;
@@ -210,7 +199,7 @@ namespace Signum.Engine.Authorization
             {
                 user = RetrieveUser(username);
                 if (user == null)
-                    throw new ApplicationException(AuthMessage.Username0IsNotValid.NiceToString().FormatWith(username));
+                    throw new ApplicationException(LoginAuthMessage.Username0IsNotValid.NiceToString().FormatWith(username));
             }
 
             return UserHolder.UserSession(user);
@@ -223,7 +212,7 @@ namespace Signum.Engine.Authorization
             var result = RetrieveUserByUsername(username);
 
             if (result != null && result.State == UserState.Disabled)
-                throw new ApplicationException(AuthMessage.User0IsDisabled.NiceToString().FormatWith(result.UserName));
+                throw new ApplicationException(LoginAuthMessage.User0IsDisabled.NiceToString().FormatWith(result.UserName));
 
             return result;
         }
@@ -318,10 +307,41 @@ namespace Signum.Engine.Authorization
             {
                 UserEntity? user = RetrieveUser(username);
                 if (user == null)
-                    throw new IncorrectUsernameException(AuthMessage.Username0IsNotValid.NiceToString().FormatWith(username));
+                    throw new IncorrectUsernameException(LoginAuthMessage.Username0IsNotValid.NiceToString().FormatWith(username));
 
-                if (!user.PasswordHash.SequenceEqual(passwordHash))
-                    throw new IncorrectPasswordException(AuthMessage.IncorrectPassword.NiceToString());
+                using (UserHolder.UserSession(SystemUser))
+                {
+                    if (!user.PasswordHash.SequenceEqual(passwordHash))
+                    {
+                        user.LoginFailedCounter++;
+                        user.Execute(UserOperation.Save);
+
+                        if (MaxFailedLoginAttempts.HasValue && 
+                            user.LoginFailedCounter == MaxFailedLoginAttempts && 
+                            user.State == UserState.Saved)
+                        {
+                            var config = EmailLogic.Configuration;
+                            var request = ResetPasswordRequestLogic.ResetPasswordRequest(user);
+                            var url = $"{config.UrlLeft}/auth/resetPassword?code={request.Code}";
+
+                            var mail = new UserLockedMail(user, url);
+                            mail.SendMailAsync();
+                            
+                            user.Execute(UserOperation.Disable);
+
+                            throw new UserLockedException(LoginAuthMessage.User0IsDisabled.NiceToString()
+                                .FormatWith(user.UserName));
+                        }
+
+                        throw new IncorrectPasswordException(LoginAuthMessage.IncorrectPassword.NiceToString());
+                    }
+
+                    if (user.LoginFailedCounter > 0)
+                    {
+                        user.LoginFailedCounter = 0;
+                        user.Execute(UserOperation.Save);
+                    }
+                }
 
                 return user;
             }
@@ -391,10 +411,10 @@ namespace Signum.Engine.Authorization
                 new XElement("Auth",
                     new XElement("Roles",
                         RolesInOrder().Select(r => new XElement("Role",
-                            new XAttribute("Name", r.ToString()),
-                            GetMergeStrategy(r) == MergeStrategy.Intersection? new XAttribute("MergeStrategy", MergeStrategy.Intersection) : null,
+                            new XAttribute("Name", r.ToString()!),
+                            GetMergeStrategy(r) == MergeStrategy.Intersection? new XAttribute("MergeStrategy", MergeStrategy.Intersection) : null!,
                             new XAttribute("Contains", roles.Value.RelatedTo(r).ToString(","))))),
-                     ExportToXml?.GetInvocationListTyped().Select(a => a(exportAll)).NotNull().OrderBy(a => a.Name.ToString())));
+                     ExportToXml?.GetInvocationListTyped().Select(a => a(exportAll)).NotNull().OrderBy(a => a.Name.ToString())!));
         }
 
         public static SqlPreCommand? ImportRulesScript(XDocument doc, bool interactive)
@@ -402,7 +422,7 @@ namespace Signum.Engine.Authorization
             Replacements replacements = new Replacements { Interactive = interactive };
 
             Dictionary<string, Lite<RoleEntity>> rolesDic = roles.Value.ToDictionary(a => a.ToString()!);
-            Dictionary<string, XElement> rolesXml = doc.Root.Element("Roles").Elements("Role").ToDictionary(x => x.Attribute("Name").Value);
+            Dictionary<string, XElement> rolesXml = doc.Root!.Element("Roles")!.Elements("Role").ToDictionary(x => x.Attribute("Name")!.Value);
 
             replacements.AskForReplacements(rolesXml.Keys.ToHashSet(), rolesDic.Keys.ToHashSet(), "Roles");
 
@@ -426,9 +446,9 @@ namespace Signum.Engine.Authorization
 
                     EnumerableExtensions.JoinStrict(
                         roles.Value.RelatedTo(r),
-                        kvp.Value.Attribute("Contains").Value.Split(new []{','},  StringSplitOptions.RemoveEmptyEntries),
-                        sr => sr.ToString(),
-                        s => rolesDic[s].ToString(),
+                        kvp.Value.Attribute("Contains")!.Value.Split(new []{','},  StringSplitOptions.RemoveEmptyEntries),
+                        sr => sr.ToString()!,
+                        s => rolesDic[s].ToString()!,
                         (sr, s) => 0,
                         "subRoles of {0}".FormatWith(r));
                 }
@@ -454,19 +474,21 @@ namespace Signum.Engine.Authorization
 
             return SqlPreCommand.Combine(Spacing.Triple,
                 new SqlPreCommandSimple("-- BEGIN AUTH SYNC SCRIPT"),
-                new SqlPreCommandSimple("use {0}".FormatWith(Connector.Current.DatabaseName())),
+                Connector.Current.SqlBuilder.UseDatabase(),
                 dbOnlyWarnings,
                 result,
                 new SqlPreCommandSimple("-- END AUTH SYNC SCRIPT"));
         }
 
+
+
         public static void LoadRoles(XDocument doc)
         {
-            var roleInfos = doc.Root.Element("Roles").Elements("Role").Select(x => new
+            var roleInfos = doc.Root!.Element("Roles")!.Elements("Role").Select(x => new
             {
-                Name = x.Attribute("Name").Value,
+                Name = x.Attribute("Name")!.Value,
                 MergeStrategy = x.Attribute("MergeStrategy")?.Let(ms => ms.Value.ToEnum<MergeStrategy>()) ?? MergeStrategy.Union,
-                SubRoles = x.Attribute("Contains").Value.SplitNoEmpty(',' )
+                SubRoles = x.Attribute("Contains")!.Value.SplitNoEmpty(',' )
             }).ToList();
 
             var roles = roleInfos.ToDictionary(a => a.Name!, a => new RoleEntity { Name = a.Name!, MergeStrategy = a.MergeStrategy }); /*CSBUG*/
@@ -485,7 +507,7 @@ namespace Signum.Engine.Authorization
             Table table = Schema.Current.Table(typeof(RoleEntity));
             TableMList relationalTable = table.TablesMList().Single();
 
-            Dictionary<string, XElement> rolesXml = doc.Root.Element("Roles").Elements("Role").ToDictionary(x => x.Attribute("Name").Value);
+            Dictionary<string, XElement> rolesXml = doc.Root!.Element("Roles")!.Elements("Role").ToDictionary(x => x.Attribute("Name")!.Value);
 
             {
                 Dictionary<string, RoleEntity> rolesDic = Database.Query<RoleEntity>().ToDictionary(a => a.ToString());
@@ -514,12 +536,12 @@ namespace Signum.Engine.Authorization
                 {
                     SqlPreCommand.Combine(Spacing.Triple,
                        new SqlPreCommandSimple("-- BEGIN ROLE SYNC SCRIPT"),
-                       new SqlPreCommandSimple("use {0}".FormatWith(Connector.Current.DatabaseName())),
+                       Connector.Current.SqlBuilder.UseDatabase(),
                        roleInsertsDeletes,
                        new SqlPreCommandSimple("-- END ROLE  SYNC SCRIPT"))!.OpenSqlFileRetry();
 
-                    Console.WriteLine("Press [Enter] when executed...");
-                    Console.ReadLine();
+                    if (!SafeConsole.Ask("Did you run the previous script (Sync Roles)?"))
+                        return;
                 }
                 else
                 {
@@ -536,7 +558,7 @@ namespace Signum.Engine.Authorization
                  removeOld: (name, role) => { throw new InvalidOperationException("No old roles should be at this stage. Did you execute the script?"); },
                  mergeBoth: (name, xElement, role) =>
                  {
-                     var should = xElement.Attribute("Contains").Value.Split(new []{','},  StringSplitOptions.RemoveEmptyEntries);
+                     var should = xElement.Attribute("Contains")!.Value.Split(new []{','},  StringSplitOptions.RemoveEmptyEntries);
                      var current = role.Roles.Select(a => a.ToString()!);
 
                      if(should.OrderBy().SequenceEqual(current.OrderBy()))
@@ -551,12 +573,12 @@ namespace Signum.Engine.Authorization
                 {
                     SqlPreCommand.Combine(Spacing.Triple,
                        new SqlPreCommandSimple("-- BEGIN ROLE SYNC SCRIPT"),
-                       new SqlPreCommandSimple("use {0}".FormatWith(Connector.Current.DatabaseName())),
+                       Connector.Current.SqlBuilder.UseDatabase(),
                        roleRelationships,
                        new SqlPreCommandSimple("-- END ROLE  SYNC SCRIPT"))!.OpenSqlFileRetry();
 
-                    Console.WriteLine("Press [Enter] when executed...");
-                    Console.ReadLine();
+                    if (!SafeConsole.Ask("Did you run the previous script (Sync Roles Relationships)?"))
+                        return;
                 }
                 else
                 {
@@ -626,6 +648,8 @@ namespace Signum.Engine.Authorization
                 else
                     command.OpenSqlFileRetry();
 
+                CacheLogic.ForceReset();
+                GlobalLazy.ResetAll();
             }
 
             void Export()
@@ -634,7 +658,9 @@ namespace Signum.Engine.Authorization
                 doc.Save(fileName);
                 Console.WriteLine("Sucesfully exported to {0}".FormatWith(fileName));
 
-                if (SafeConsole.Ask("Publish to Load?"))
+                var info = new DirectoryInfo("../../../");
+
+                if (info.Exists && SafeConsole.Ask($"Publish to '{info.Name}' directory (source code)?"))
                     File.Copy(fileName, "../../../" + Path.GetFileName(fileName), overwrite: true);
             }
 
@@ -661,14 +687,6 @@ namespace Signum.Engine.Authorization
             }.Choose();
 
             action?.Invoke();
-        }
-
-        public static string? OnLoginMessage()
-        {
-            if (AuthLogic.LoginMessage != null)
-                return AuthLogic.LoginMessage();
-
-            return null;
         }
 
         public static bool IsLogged()

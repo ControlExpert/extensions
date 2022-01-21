@@ -1,14 +1,17 @@
+using Signum.Entities;
 using Signum.Entities.Authorization;
 using Signum.Entities.Basics;
+using Signum.Entities.UserAssets;
 using Signum.Utilities;
 using System;
 using System.ComponentModel;
 using System.Linq.Expressions;
+using System.Xml.Linq;
 
 namespace Signum.Entities.Workflow
 {
     [Serializable, EntityKind(EntityKind.Main, EntityData.Master)]
-    public class WorkflowEntity : Entity
+    public class WorkflowEntity : Entity, IUserAssetEntity
     {
         [UniqueIndex]
         [StringLengthValidator(Min = 3, Max = 100)]
@@ -25,6 +28,19 @@ namespace Signum.Entities.Workflow
         /// </summary>
         [InTypeScript(false), AvoidDump]
         public WorkflowXmlEmbedded? FullDiagramXml { get; set; }
+
+        [UniqueIndex]
+        public Guid Guid { get; set; } = Guid.NewGuid();
+
+        public XElement ToXml(IToXmlContext ctx)
+        {
+            return ctx.GetFullWorkflowElement(this);
+        }
+
+        public void FromXml(XElement element, IFromXmlContext ctx)
+        {
+            ctx.SetFullWorkflowElement(this, element);
+        }
 
         [AutoExpressionField]
         public override string ToString() => As.Expression(() => Name);
@@ -123,6 +139,11 @@ namespace Signum.Entities.Workflow
     {
         [StringLengthValidator(Min = 3, Max = int.MaxValue, MultiLine = true)]
         public string DiagramXml { get; set; }
+
+        public XElement ToXml()
+        {
+            return new XElement("DiagramXml", new XCData(this.DiagramXml));
+        }
     }
 
     public interface IWorkflowObjectEntity : IEntity
@@ -141,6 +162,21 @@ namespace Signum.Entities.Workflow
     public class WorkflowReplacementModel: ModelEntity
     {
         public MList<WorkflowReplacementItemEmbedded> Replacements { get; set; } = new MList<WorkflowReplacementItemEmbedded>();
+
+        public MList<NewTasksEmbedded> NewTasks { get; set; } = new MList<NewTasksEmbedded>();
+
+        public override string ToString()
+        {
+            return NicePropertyName(()=> Replacements) + ": " + Replacements.Count;
+        }
+    }
+
+    [Serializable]
+    public class NewTasksEmbedded : EmbeddedEntity
+    {
+        public string BpmnId { get; set; }
+        public string? Name { get; set; }
+        public Lite<WorkflowEntity>? SubWorkflow { get; set; }
     }
 
     [Serializable]
@@ -242,6 +278,10 @@ namespace Signum.Entities.Workflow
         ParallelSplit0ShouldHaveOnlyNormalConnectionsWithoutConditions,
         [Description("Join '{0}' (of type {1}) does not match with its pair, the Split '{2}' (of type {3})")]
         Join0OfType1DoesNotMatchWithItsPairTheSplit2OfType3,
+        [Description("Decision option '{0}' is declared but never used in a connection")]
+        DecisionOption0IsDeclaredButNeverUsedInAConnection,
+        [Description("Decision option name '{0}' is not declared in any activity")]
+        DecisionOptionName0IsNotDeclaredInAnyActivity,
     }
 
     public enum WorkflowActivityMonitorMessage

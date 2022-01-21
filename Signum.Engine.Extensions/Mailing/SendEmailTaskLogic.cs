@@ -14,6 +14,7 @@ using System.Reflection;
 using Signum.Engine.UserQueries;
 using Signum.Entities.Processes;
 using Signum.Engine.Templating;
+using System.Collections.Generic;
 
 namespace Signum.Engine.Mailing
 {
@@ -36,16 +37,10 @@ namespace Signum.Engine.Mailing
                 
                 Validator.PropertyValidator((SendEmailTaskEntity er) => er.UniqueTarget).StaticPropertyValidation += (er, pi) =>
                 {
-                    if (er.UniqueTarget != null && er.TargetsFromUserQuery != null)
-                        return ValidationMessage._0And1CanNotBeSetAtTheSameTime.NiceToString(pi.NiceName(), ReflectionTools.GetPropertyInfo(()=> er.TargetsFromUserQuery).NiceName());
-
-                    Implementations? implementations = er.EmailTemplate == null ? null : GetImplementations(er.EmailTemplate.InDB(a => a.Query));
-                    if (implementations != null && er.UniqueTarget == null && er.TargetsFromUserQuery == null)
-                        return ValidationMessage._0IsNotSet.NiceToString(pi.NiceName());
-
-                    if (er.UniqueTarget != null)
+                    if (er.UniqueTarget != null && er.EmailTemplate != null)
                     {
-                        if (!implementations.Value.Types.Contains(er.UniqueTarget.EntityType))
+                        Implementations? implementations = GetImplementations(er.EmailTemplate.InDB(a => a.Query));
+                        if (!implementations!.Value.Types.Contains(er.UniqueTarget.EntityType))
                             return ValidationMessage._0ShouldBeOfType1.NiceToString(pi.NiceName(), implementations.Value.Types.CommaOr(t => t.NiceName()));
                     }
 
@@ -54,15 +49,12 @@ namespace Signum.Engine.Mailing
 
                 Validator.PropertyValidator((SendEmailTaskEntity er) => er.TargetsFromUserQuery).StaticPropertyValidation += (SendEmailTaskEntity er, PropertyInfo pi) =>
                 {
-                    Implementations? implementations = er.EmailTemplate == null ? null : GetImplementations(er.EmailTemplate.InDB(a => a.Query));
-                    if (implementations != null && er.TargetsFromUserQuery == null && er.UniqueTarget == null)
-                        return ValidationMessage._0IsNotSet.NiceToString(pi.NiceName());
-
-                    if (er.TargetsFromUserQuery != null)
+                    if (er.TargetsFromUserQuery != null && er.EmailTemplate != null)
                     {
+                        Implementations? emailImplementations = GetImplementations(er.EmailTemplate.InDB(a => a.Query));
                         var uqImplementations = GetImplementations(er.TargetsFromUserQuery.InDB(a => a.Query));
-                        if (!implementations.Value.Types.Intersect(uqImplementations.Value.Types).Any())
-                            return ValidationMessage._0ShouldBeOfType1.NiceToString(pi.NiceName(), implementations.Value.Types.CommaOr(t => t.NiceName()));
+                        if (!emailImplementations!.Value.Types.Intersect(uqImplementations!.Value.Types).Any())
+                            return ValidationMessage._0ShouldBeOfType1.NiceToString(pi.NiceName(), emailImplementations.Value.Types.CommaOr(t => t.NiceName()));
                     }
 
                     return null;
@@ -95,10 +87,27 @@ namespace Signum.Engine.Mailing
                     else
                     {
                         var qr = er.TargetsFromUserQuery!.RetrieveAndRemember().ToQueryRequest();
-                        qr.Columns.Clear();
-                        var result = QueryLogic.Queries.ExecuteQuery(qr);
 
-                        var entities = result.Rows.Select(a => a.Entity).ToList();
+                        List<Lite<Entity>> entities;
+
+                        if (!qr.GroupResults)
+                        {
+                            qr.Columns.Clear();
+                            var result = QueryLogic.Queries.ExecuteQuery(qr);
+
+                            entities = result.Rows.Select(a => a.Entity).Distinct().NotNull().ToList();
+                        }
+                        else
+                        {
+                            var result = QueryLogic.Queries.ExecuteQuery(qr);
+
+                            var col = result.Columns.FirstOrDefault();
+                            if (col == null || !col.Column.Type.IsLite())
+                                throw new InvalidOperationException("Grouping UserQueries should have the target entity as first column");
+
+                            entities = result.Rows.Select(row => (Lite<Entity>?)row[col]).Distinct().NotNull().ToList();
+                        }
+
                         if (entities.IsEmpty())
                             return null;
 
@@ -119,7 +128,7 @@ namespace Signum.Engine.Mailing
                 return null;
 
             var entityColumn = QueryLogic.Queries.QueryDescription(queryName).Columns.Single(a => a.IsEntity);
-            var implementations = entityColumn.Implementations.Value;
+            var implementations = entityColumn.Implementations!.Value;
 
             if (implementations.IsByAll)
                 throw new InvalidOperationException("ByAll implementations not supported");

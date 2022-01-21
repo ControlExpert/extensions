@@ -14,11 +14,11 @@ export const PrintLineEntity = new Type<PrintLineEntity>("PrintLine");
 export interface PrintLineEntity extends Entities.Entity, Processes.IProcessLineDataEntity {
   Type: "PrintLine";
   creationDate: string;
-  testFileType: Files.FileTypeSymbol;
+  testFileType: Files.FileTypeSymbol | null;
   file: Files.FilePathEmbedded;
   package: Entities.Lite<PrintPackageEntity> | null;
   printedOn: string | null;
-  referred: Entities.Lite<Entities.Entity>;
+  referred: Entities.Lite<Entities.Entity> | null;
   state: PrintLineState;
 }
 

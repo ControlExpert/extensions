@@ -1,4 +1,4 @@
-import * as moment from 'moment'
+import { DateTime } from 'luxon'
 import { EntitySettings } from '@framework/Navigator'
 import * as Navigator from '@framework/Navigator'
 import { EntityOperationSettings } from '@framework/Operations'
@@ -18,7 +18,10 @@ export function start(options: { routes: JSX.Element[], couldHaveAlerts?: (typeN
 
   Operations.addSettings(new EntityOperationSettings(AlertOperation.CreateAlertFromEntity, {
     isVisible: ctx => couldHaveAlerts(ctx.entity.Type),
-    contextual: { icon: "bell", iconColor: "darkorange", color: "warning", isVisible: ctx => couldHaveAlerts(ctx.context.lites[0].EntityType), }
+    icon: "bell",
+    iconColor: "darkorange",
+    color: "warning",
+    contextual: { isVisible: ctx => couldHaveAlerts(ctx.context.lites[0].EntityType), }
   }));
 
   QuickLinks.registerGlobalQuickLink(ctx => new QuickLinks.QuickLinkExplore({
@@ -26,24 +29,23 @@ export function start(options: { routes: JSX.Element[], couldHaveAlerts?: (typeN
     parentToken: AlertEntity.token(e => e.target),
     parentValue: ctx.lite
   }, {
-      isVisible: AuthClient.navigatorIsViewable(AlertEntity) && couldHaveAlerts(ctx.lite.EntityType),
-      icon: "bell",
-      iconColor: "orange",
-      isShy: true
-    }));
+    isVisible: Navigator.isViewable(AlertEntity) && couldHaveAlerts(ctx.lite.EntityType),
+    icon: "bell",
+    iconColor: "orange",
+  }));
 
   Operations.addSettings(new EntityOperationSettings(AlertOperation.Attend, {
     alternatives: eoc => [andClose(eoc)],
   }));
 
   Operations.addSettings(new EntityOperationSettings(AlertOperation.Delay, {
-    onClick: (eoc) => chooseDate().then(d => d && eoc.defaultClick(d.format())).done(),
-    contextual: { onClick: (coc) => chooseDate().then(d => d && coc.defaultContextualClick(d.format())).done() },
-    contextualFromMany: { onClick: (coc) => chooseDate().then(d => d && coc.defaultContextualClick(d.format())).done() }
+    onClick: (eoc) => chooseDate().then(d => d && eoc.defaultClick(d.toISO())).done(),
+    contextual: { onClick: (coc) => chooseDate().then(d => d && coc.defaultContextualClick(d.toISO())).done() },
+    contextualFromMany: { onClick: (coc) => chooseDate().then(d => d && coc.defaultContextualClick(d.toISO())).done() }
   }));
 }
 
-function chooseDate(): Promise<moment.Moment | undefined> {
+function chooseDate(): Promise<DateTime | undefined> {
   return SelectorModal.chooseElement(DelayOption.values(), {
     title: AlertMessage.DelayDuration.niceToString(),
     buttonDisplay: v => DelayOption.niceToString(v)!,
@@ -51,7 +53,7 @@ function chooseDate(): Promise<moment.Moment | undefined> {
     if (!val)
       return undefined;
 
-    var result = moment();
+    var result = DateTime.local();
     if (val == "Custom") {
       var mi = AlertEntity.memberInfo(a => a.alertDate);
       return ValueLineModal.show({
@@ -60,16 +62,16 @@ function chooseDate(): Promise<moment.Moment | undefined> {
         unitText: mi.unit,
         labelText: mi.niceName,
         initiallyFocused: true,
-        initialValue: result.format()
+        initialValue: result.toISO()
       });
     } else {
       switch (val) {
-        case "_5Mins": return result.add(5, "minute");
-        case "_15Mins": return result.add(15, "minute");
-        case "_30Mins": return result.add(30, "minute");
-        case "_1Hour": return result.add(1, "hour");
-        case "_2Hours": return result.add(2, "hour");
-        case "_1Day": return result.add(1, "day");
+        case "_5Mins": return result.plus({ minutes: 5 });
+        case "_15Mins": return result.plus({ minutes: 15 });
+        case "_30Mins": return result.plus({ minutes: 30 });
+        case "_1Hour": return result.plus({ hour: 1 });
+        case "_2Hours": return result.plus({ hour: 2 });
+        case "_1Day": return result.plus({ day: 1 });
         default: throw new Error("Unexpected " + val);
       }
     }

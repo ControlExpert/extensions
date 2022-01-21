@@ -29,7 +29,7 @@ export default function renderBubblePack({ data, width, height, parameters, load
   if (colorScaleColumn) {
     var scaleFunc = scaleFor(colorScaleColumn, data.rows.map(r => colorScaleColumn!.getValue(r)), 0, 1, parameters["ColorScale"]);
     var colorInterpolator = ChartUtils.getColorInterpolation(parameters["ColorInterpolate"]);
-    color = r => colorInterpolator && colorInterpolator(scaleFunc(colorScaleColumn!.getValue(r)));
+    color = r => colorInterpolator && colorInterpolator(scaleFunc(colorScaleColumn!.getValue(r))!);
   }
   else if (colorSchemeColumn) {
     var categoryColor = ChartUtils.colorCategory(parameters, data.rows.map(r => colorSchemeColumn!.getValueKey(r)));
@@ -52,7 +52,7 @@ export default function renderBubblePack({ data, width, height, parameters, load
 
   var size = scaleFor(valueColumn, data.rows.map(r => valueColumn.getValue(r)), 0, 1, parameters["Scale"]);
 
-  root.sum(r => r == null ? 0 : size(valueColumn.getValue(r as ChartRow)));
+  root.sum(r => r == null ? 0 : size(valueColumn.getValue(r as ChartRow))!);
 
   var bubble = d3.pack<ChartRow | Folder | Root>()
     .size([width, height])
@@ -79,7 +79,7 @@ export default function renderBubblePack({ data, width, height, parameters, load
     <svg direction="ltr" width={width} height={height}>
       {
         nodes.orderByDescending(a => a.r).map(d => <g key={getNodeKey(d)} className="node sf-transition" transform={translate(d.x, d.y) + (initialLoad ? scale(0, 0) : scale(1, 1))} cursor="pointer"
-          onClick={e => isFolder(d.data) ? onDrillDown({ c2: d.data.folder }) : onDrillDown(d.data)}>
+          onClick={e => isFolder(d.data) ? onDrillDown({ c2: d.data.folder }, e) : onDrillDown(d.data, e)}>
           <circle className="sf-transition" shapeRendering="initial" r={d.r} fill={isFolder(d.data) ? folderColor!(d.data.folder) : color(d.data)!}
             fillOpacity={parameters["FillOpacity"] ?? undefined}
             stroke={parameters["StrokeColor"] ?? (isFolder(d.data) ? folderColor!(d.data.folder) : (color(d.data) ?? undefined))}

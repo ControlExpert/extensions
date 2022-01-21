@@ -20,6 +20,7 @@ using Signum.Utilities.DataStructures;
 using DocumentFormat.OpenXml;
 using W = DocumentFormat.OpenXml.Wordprocessing;
 using System.Data;
+using System.Globalization;
 using Signum.Entities.Reflection;
 using Signum.Entities.Templating;
 using Signum.Engine.Authorization;
@@ -50,6 +51,8 @@ namespace Signum.Engine.Word
 
         public static Dictionary<string, IWordDataTableProvider> ToDataTableProviders = new Dictionary<string, IWordDataTableProvider>();
 
+        public static Func<Entity?, CultureInfo>? GetCultureInfo;
+
         [AutoExpressionField]
         public static IQueryable<WordTemplateEntity> WordTemplates(this WordModelEntity e) => 
             As.Expression(() => Database.Query<WordTemplateEntity>().Where(a => a.Model == e));
@@ -77,7 +80,7 @@ namespace Signum.Engine.Word
                     Execute = (wt, _) => {
                         if (!wt.IsNew)
                         {
-                            var oldFile = wt.InDBEntity(t => t.Template);
+                            var oldFile = wt.InDB(t => t.Template);
                             if (oldFile != null && !wt.Template.Is(oldFile))
                                 Transaction.PreRealCommit += dic => oldFile.Delete();
                         }
@@ -88,6 +91,8 @@ namespace Signum.Engine.Word
                 {
                     Delete = (e, _) => e.Delete(),
                 }.Register();
+
+                sb.Schema.EntityEvents<WordTemplateEntity>().Retrieved += WordTemplateLogic_Retrieved;
 
                 PermissionAuthLogic.RegisterPermissions(WordTemplatePermission.GenerateReport);
 
@@ -162,6 +167,16 @@ namespace Signum.Engine.Word
             }
         }
 
+        private static void WordTemplateLogic_Retrieved(WordTemplateEntity template, PostRetrievingContext ctx)
+        {
+            object? queryName = template.Query.ToQueryNameCatch();
+            if (queryName == null)
+                return;
+
+            QueryDescription description = QueryLogic.Queries.QueryDescription(queryName);
+
+            template.ParseData(description);
+        }
 
         public static Dictionary<Type, WordTemplateVisibleOn> VisibleOnDictionary = new Dictionary<Type, WordTemplateVisibleOn>()
         {
@@ -338,7 +353,7 @@ namespace Signum.Engine.Word
                                 var renderer = new WordTemplateRenderer(document, qd, template.Culture.ToCultureInfo(), template, model, entity, parsedFileName);
 
                                 p.Switch("MakeQuery");
-                                renderer.MakeQuery();
+                                renderer.ExecuteQuery();
 
                                 p.Switch("RenderNodes");
                                 renderer.RenderNodes(); Dump(document, "3.Replaced.txt");
@@ -574,7 +589,7 @@ namespace Signum.Engine.Word
             return result;
         }
 
-        public static void GenerateWordTemplates()
+        public static void GenerateDefaultTemplates()
         {
             var wordModels = Database.Query<WordModelEntity>().Where(se => !se.WordTemplates().Any()).ToList();
 
@@ -633,7 +648,7 @@ namespace Signum.Engine.Word
                                     toModify.Save();
                                     SafeConsole.WriteLineColor(ConsoleColor.Yellow, $"Initialized {se.FullClassName}");
                                 }
-                                else if (MemComparer.Equals(toModify.Template.RetrieveAndForget().BinaryFile, defaultTemplate.Template.Entity.BinaryFile))
+                                else if (MemoryExtensions.SequenceEqual<byte>(toModify.Template.RetrieveAndForget().BinaryFile, defaultTemplate.Template.Entity.BinaryFile))
                                 {
                                     SafeConsole.WriteLineColor(ConsoleColor.DarkGray, $"Identical {se.FullClassName}");
                                 }

@@ -29,6 +29,7 @@ namespace Signum.Engine.Workflow
                 StartDate = ca.StartDate,
                 DoneDate = ca.DoneDate,
                 DoneType = ca.DoneType,
+                DoneDecision = ca.DoneDecision,
                 DoneBy = ca.DoneBy,
                 Duration = ca.Duration,
                 AverageDuration = averages.TryGetS(ca.WorkflowActivity.ToLite()),
@@ -60,7 +61,7 @@ namespace Signum.Engine.Workflow
                 }
                 else
                 {
-                    var conns = GetAllConnections(gr, from, to, path => IsValidPath(prev.DoneType.Value, path));
+                    var conns = GetAllConnections(gr, from, to, path => IsValidPath(prev.DoneType!.Value, prev.DoneDecision, path));
 
                     if (conns.Any())
                         return conns.Select(c => new CaseConnectionStats().WithConnection(c).WithDone(prev));
@@ -110,7 +111,13 @@ namespace Signum.Engine.Workflow
                 .Select(cs =>
                 {
                     var from = gr.GetNode(cs.WorkflowActivity);
-                    var nextConnection = gr.NextConnections(from).SingleOrDefaultEx(c => IsCompatible(c.Type, cs.DoneType!.Value) && gr.IsParallelGateway(c.To, WorkflowGatewayDirection.Join));
+                    var candidates = cs.DoneType == DoneType.Timeout && from is WorkflowActivityEntity wa ?
+                        wa.BoundaryTimers.SelectMany(e => gr.NextConnections(e)) :
+                        gr.NextConnections(from);
+
+                    var nextConnection = candidates
+                    .SingleOrDefaultEx(c => IsCompatible(c.Type, cs.DoneType!.Value) && (c.DoneDecision() == null || c.DoneDecision() == cs.DoneDecision) && gr.IsParallelGateway(c.To, WorkflowGatewayDirection.Join));
+
                     if (nextConnection != null)
                         return new CaseConnectionStats().WithConnection(nextConnection).WithDone(cs);
 
@@ -159,8 +166,6 @@ namespace Signum.Engine.Workflow
             switch (doneType)
             {
                 case DoneType.Next:return type == ConnectionType.Normal;
-                case DoneType.Approve:return type == ConnectionType.Approve;
-                case DoneType.Decline: return type == ConnectionType.Decline;
                 case DoneType.Jump: return type == ConnectionType.Jump;
                 case DoneType.Timeout: return type == ConnectionType.Normal;
                 case DoneType.ScriptSuccess: return type == ConnectionType.Normal;
@@ -170,16 +175,14 @@ namespace Signum.Engine.Workflow
             }
         }
 
-        private static bool IsValidPath(DoneType doneType, Stack<WorkflowConnectionEntity> path)
+        private static bool IsValidPath(DoneType doneType, string? doneDecision, Stack<WorkflowConnectionEntity> path)
         {
             switch (doneType)
             {
                 case DoneType.Next: 
                 case DoneType.ScriptSuccess:
                 case DoneType.Recompose:
-                    return path.All(a => a.Type == ConnectionType.Normal);
-                case DoneType.Approve: return path.All(a => a.Type == ConnectionType.Normal || a.Type == ConnectionType.Approve);
-                case DoneType.Decline: return path.All(a => a.Type == ConnectionType.Normal || a.Type == ConnectionType.Decline);
+                    return path.All(a => a.Type == ConnectionType.Normal && (a.DoneDecision() == null || a.DoneDecision() == doneDecision));
                 case DoneType.Jump: return path.All(a => a == path.FirstEx() ? a.Type == ConnectionType.Jump : a.Type == ConnectionType.Normal);
                 case DoneType.ScriptFailure: return path.All(a => a == path.FirstEx() ? a.Type == ConnectionType.ScriptException : a.Type == ConnectionType.Normal);
                 case DoneType.Timeout:
@@ -264,6 +267,7 @@ namespace Signum.Engine.Workflow
         public DateTime StartDate;
         public DateTime? DoneDate;
         public DoneType? DoneType;
+        public string? DoneDecision;
         public Lite<IUserEntity>? DoneBy;
         public double? Duration;
         public double? AverageDuration;
@@ -289,6 +293,7 @@ namespace Signum.Engine.Workflow
             this.DoneBy = activity.DoneBy;
             this.DoneDate = activity.DoneDate;
             this.DoneType = activity.DoneType;
+            this.DoneDecision = activity.DoneDecision;
             return this;
         }
 
@@ -297,9 +302,12 @@ namespace Signum.Engine.Workflow
         public Lite<IUserEntity>? DoneBy;
         public DoneType? DoneType;
 
+        public string? DoneDecision { get; private set; }
         public string? BpmnElementId { get; internal set; }
         public string? FromBpmnElementId { get; internal set; }
         public string? ToBpmnElementId { get; internal set; }
+
+        public override string ToString() => $"{FromBpmnElementId} =({DoneType})=> {ToBpmnElementId}";
     }
 
 #pragma warning disable CS8618 // Non-nullable field is uninitialized.

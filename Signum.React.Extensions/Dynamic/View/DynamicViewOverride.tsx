@@ -2,7 +2,7 @@ import * as React from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { DynamicViewOverrideEntity, DynamicViewMessage } from '../Signum.Entities.Dynamic'
 import { EntityLine, TypeContext, FormGroup } from '@framework/Lines'
-import { Entity, JavascriptMessage, NormalWindowMessage, is } from '@framework/Signum.Entities'
+import { Entity, JavascriptMessage, NormalWindowMessage, is, SaveChangesMessage } from '@framework/Signum.Entities'
 import { Binding, PropertyRoute, ReadonlyBinding } from '@framework/Reflection'
 import JavascriptCodeMirror from '../../Codemirror/JavascriptCodeMirror'
 import * as DynamicViewClient from '../DynamicViewClient'
@@ -18,7 +18,7 @@ import { Dropdown, DropdownButton } from 'react-bootstrap';
 import { useForceUpdate, useAPI } from '@framework/Hooks'
 import { ModulesHelp } from "./ModulesHelp";
 import { EntityFrame } from '@framework/TypeContext'
-import { ErrorBoundary } from '../../../../Framework/Signum.React/Scripts/Components'
+import { ErrorBoundary } from '@framework/Components'
 
 interface DynamicViewOverrideComponentProps {
   ctx: TypeContext<DynamicViewOverrideEntity>;
@@ -49,7 +49,7 @@ export default function DynamicViewOverrideComponent(p: DynamicViewOverrideCompo
   function handleTypeRemove() {
     if (scriptChangedRef.current)
       return MessageModal.show({
-        title: NormalWindowMessage.ThereAreChanges.niceToString(),
+        title: SaveChangesMessage.ThereAreChanges.niceToString(),
         message: JavascriptMessage.loseCurrentChanges.niceToString(),
         buttons: "yes_no",
         icon: "warning",

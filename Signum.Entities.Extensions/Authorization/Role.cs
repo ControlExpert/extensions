@@ -28,7 +28,7 @@ namespace Signum.Entities.Authorization
         [NotifyCollectionChanged]
         public MList<Lite<RoleEntity>> Roles { get; set; } = new MList<Lite<RoleEntity>>();
 
-        protected override void ChildCollectionChanged(object sender, NotifyCollectionChangedEventArgs args)
+        protected override void ChildCollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
         {
             Notify(() => StrategyHint);
         }
@@ -54,7 +54,7 @@ namespace Signum.Entities.Authorization
             {
                 UserEntity user = UserEntity.Current;
                 if (user == null)
-                    throw new AuthenticationException(AuthMessage.NotUserLogged.NiceToString());
+                    throw new AuthenticationException(LoginAuthMessage.NotUserLogged.NiceToString());
 
                 return user.Role;
             }
@@ -65,11 +65,6 @@ namespace Signum.Entities.Authorization
     {
         Union,
         Intersection,
-    }
-
-    public enum RoleQuery
-    {
-        RolesReferedBy
     }
 
     [AutoInit]

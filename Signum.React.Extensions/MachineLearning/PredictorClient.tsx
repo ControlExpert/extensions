@@ -1,5 +1,4 @@
 import * as React from 'react'
-import numbro from 'numbro'
 import * as Constructor from '@framework/Constructor';
 import { ajaxPost, ajaxGet, saveFile, ajaxGetRaw } from '@framework/Services';
 import { EntitySettings } from '@framework/Navigator'
@@ -7,7 +6,7 @@ import * as Navigator from '@framework/Navigator'
 import * as Finder from '@framework/Finder'
 import { Lite, toLite } from '@framework/Signum.Entities'
 import { EntityOperationSettings } from '@framework/Operations'
-import { symbolNiceName } from '@framework/Reflection'
+import { symbolNiceName, toNumberFormat } from '@framework/Reflection'
 import * as Operations from '@framework/Operations'
 import {
   PredictorEntity, PredictorSubQueryEntity, PredictorMessage,
@@ -30,32 +29,33 @@ export function start(options: { routes: JSX.Element[] }) {
   Navigator.addSettings(new EntitySettings(PredictSimpleResultEntity, e => import('./Templates/PredictSimpleResult')));
 
   function numbericCellFormatter(color: string) {
-    return new CellFormatter((cell: number) => cell == undefined ? "" : <span style={{ color: color }}>{numbro(cell).format("0.000")}</span>, "numeric-cell");
+    var numberFormat = toNumberFormat("0.000");
+    return new CellFormatter((cell: number) => cell == undefined ? "" : <span style={{ color: color }}>{numberFormat.format(cell)}</span>, "numeric-cell");
   }
 
-  Finder.registerPropertyFormatter(PredictorEpochProgressEntity.propertyRoute(a => a.lossTraining), numbericCellFormatter("#1A5276"));
-  Finder.registerPropertyFormatter(PredictorEpochProgressEntity.propertyRoute(a => a.evaluationTraining), numbericCellFormatter("#5DADE2"));
-  Finder.registerPropertyFormatter(PredictorEpochProgressEntity.propertyRoute(a => a.lossValidation), numbericCellFormatter("#7B241C"));
-  Finder.registerPropertyFormatter(PredictorEpochProgressEntity.propertyRoute(a => a.evaluationValidation), numbericCellFormatter("#D98880"));
+  Finder.registerPropertyFormatter(PredictorEpochProgressEntity.tryPropertyRoute(a => a.lossTraining), numbericCellFormatter("#1A5276"));
+  Finder.registerPropertyFormatter(PredictorEpochProgressEntity.tryPropertyRoute(a => a.evaluationTraining), numbericCellFormatter("#5DADE2"));
+  Finder.registerPropertyFormatter(PredictorEpochProgressEntity.tryPropertyRoute(a => a.lossValidation), numbericCellFormatter("#7B241C"));
+  Finder.registerPropertyFormatter(PredictorEpochProgressEntity.tryPropertyRoute(a => a.evaluationValidation), numbericCellFormatter("#D98880"));
 
   QuickLinks.registerQuickLink(PredictorEntity, ctx => new QuickLinks.QuickLinkAction(
-    PredictorMessage.DownloadCsv.niceToString(),
-    PredictorMessage.DownloadCsv.niceToString(),
+    PredictorMessage.DownloadCsv.name,
+    () => PredictorMessage.DownloadCsv.niceToString(),
     e => API.downloadCsvById(ctx.lite)));
 
   QuickLinks.registerQuickLink(PredictorEntity, ctx => new QuickLinks.QuickLinkAction(
-    PredictorMessage.DownloadTsv.niceToString(),
-    PredictorMessage.DownloadTsv.niceToString(),
+    PredictorMessage.DownloadTsv.name,
+    () => PredictorMessage.DownloadTsv.niceToString(),
     e => API.downloadTsvById(ctx.lite)));
 
   QuickLinks.registerQuickLink(PredictorEntity, ctx => new QuickLinks.QuickLinkAction(
-    PredictorMessage.DownloadTsvMetadata.niceToString(),
-    PredictorMessage.DownloadTsvMetadata.niceToString(),
+    PredictorMessage.DownloadTsvMetadata.name,
+    () => PredictorMessage.DownloadTsvMetadata.niceToString(),
     e => API.downloadTsvMetadataById(ctx.lite)));
 
   QuickLinks.registerQuickLink(PredictorEntity, ctx => new QuickLinks.QuickLinkAction(
-    PredictorMessage.OpenTensorflowProjector.niceToString(),
-    PredictorMessage.OpenTensorflowProjector.niceToString(),
+    PredictorMessage.OpenTensorflowProjector.name,
+    () => PredictorMessage.OpenTensorflowProjector.niceToString(),
     e => window.open("http://projector.tensorflow.org/", "_blank")));
 
   Operations.addSettings(new EntityOperationSettings(PredictorOperation.StopTraining, { hideOnCanExecute: true }));

@@ -1,11 +1,12 @@
 import * as React from 'react'
-import * as moment from 'moment'
+import { DateTime } from 'luxon'
 import { RouteComponentProps } from 'react-router'
 import * as Navigator from '@framework/Navigator'
 import { SearchControl } from '@framework/Search'
 import { API, AsyncEmailSenderState } from './MailingClient'
 import { EmailMessageEntity } from './Signum.Entities.Mailing'
-import { useTitle, useAPI, useAPIWithReload } from '../../../Framework/Signum.React/Scripts/Hooks'
+import { useAPI, useAPIWithReload } from '@framework/Hooks'
+import { useTitle } from '@framework/AppContext'
 
 export default function AsyncEmailSenderPage(p: RouteComponentProps<{}>) {
 
@@ -46,7 +47,7 @@ export default function AsyncEmailSenderPage(p: RouteComponentProps<{}>) {
         <br />
         AsyncSenderPeriod: {state.asyncSenderPeriod} sec
         <br />
-        NextPlannedExecution: {state.nextPlannedExecution} ({state.nextPlannedExecution == undefined ? "-None-" : moment(state.nextPlannedExecution).fromNow()})
+        NextPlannedExecution: {state.nextPlannedExecution} ({state.nextPlannedExecution == undefined ? "-None-" : DateTime.fromISO(state.nextPlannedExecution).toRelative()})
         <br />
         IsCancelationRequested: {state.isCancelationRequested}
         <br />

@@ -49,7 +49,7 @@ namespace Signum.Engine.MachineLearning
                 var point = r.NextDouble() * total;
 
                 double acum = 0;
-                foreach (var kvp in positiveSurvivors)
+                foreach (var kvp in positiveSurvivors!)
                 {
                     acum += kvp.Value;
                     if (point < acum)
@@ -117,7 +117,7 @@ namespace Signum.Engine.MachineLearning
         {
             PredictorLogic.TrainSync(p, onReportProgres: (str, val) => onProgress(val));
 
-            return p.ResultValidation!.Loss.Value;
+            return p.ResultValidation!.Loss!.Value;
         }
 
         //private static double EvaluateMock(ExecutingProcess ep, PredictorEntity p, Action<decimal?> onProgress)

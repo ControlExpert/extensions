@@ -6,7 +6,7 @@ import { translate, rotate } from './ChartUtils';
 import TextEllipsis from './TextEllipsis';
 import { Rule } from './Rule';
 
-export function YScaleTicks({ xRule, yRule, valueColumn, y, format }: { xRule: Rule, yRule: Rule, valueColumn: ChartColumn<number>, y: d3.ScaleContinuousNumeric<number, number>, format?: (d: number) => string }) {
+export function YScaleTicks({ xRule, yRule, valueColumn, y, format }: { xRule: Rule<"title" | "labels" | "ticks" | "content">, yRule: Rule<"content">, valueColumn: ChartColumn<number>, y: d3.ScaleContinuousNumeric<number, number>, format?: (d: number) => string }) {
 
   var availableHeight = yRule.size("content");
 
@@ -17,21 +17,21 @@ export function YScaleTicks({ xRule, yRule, valueColumn, y, format }: { xRule: R
     <>
       <g className="y-line-group" transform={translate(xRule.start('content'), yRule.end('content'))}>
         {yTicks.map(t => <line key={t} className="y-line sf-transition"
-          transform={translate(0, -y(t))}
+          transform={translate(0, -y(t)!)}
           x2={xRule.size('content')}
           stroke="LightGray" />)}
       </g>
 
       <g className="y-tick-group" transform={translate(xRule.start('ticks'), yRule.end('content'))}>
         {yTicks.map(t => <line key={t} className="y-tick sf-transition"
-          transform={translate(0, -y(t))}
+          transform={translate(0, -y(t)!)}
           x2={xRule.size('ticks')}
           stroke="Black" />)}
       </g>
 
       <g className="y-label-group" transform={translate(xRule.end('labels'), yRule.end('content'))}>
         {yTicks.map(t => <text key={t} className="y-label sf-transition"
-          transform={translate(0, -y(t))}
+          transform={translate(0, -y(t)!)}
           dominantBaseline="middle"
           textAnchor="end">
           {yTickFormat(t)}
@@ -49,7 +49,44 @@ export function YScaleTicks({ xRule, yRule, valueColumn, y, format }: { xRule: R
   );
 }
 
-export function XScaleTicks({ xRule, yRule, valueColumn, x, format }: { xRule: Rule, yRule: Rule, valueColumn: ChartColumn<number>, x: d3.ScaleContinuousNumeric<number, number>, format?: (d: number) => string }) {
+export function YScaleTicksEnd({ xRule, yRule, valueColumn, y, format }: { xRule: Rule<"content" | "ticks2" | "labels2" | "title2">, yRule: Rule<"content">, valueColumn: ChartColumn<number>, y: d3.ScaleContinuousNumeric<number, number>, format?: (d: number) => string }) {
+
+  var availableHeight = yRule.size("content");
+
+  var yTicks = y.ticks(availableHeight / 50);
+  var yTickFormat = format ?? y.tickFormat(availableHeight / 50);
+
+  return (
+    <>
+      <g className="y-tick-group" transform={translate(xRule.start('ticks2'), yRule.end('content'))}>
+        {yTicks.map(t => <line key={t} className="y-tick sf-transition"
+          transform={translate(0, -y(t)!)}
+          x2={xRule.size('ticks2')}
+          stroke="Black" />)}
+      </g>
+
+      <g className="y-label-group" transform={translate(xRule.end('labels2'), yRule.end('content'))}>
+        {yTicks.map(t => <text key={t} className="y-label sf-transition"
+          transform={translate(0, -y(t)!)}
+          dominantBaseline="middle"
+          textAnchor="end">
+          {yTickFormat(t)}
+        </text>)}
+      </g>
+
+      <g className="y-title-group" transform={translate(xRule.middle('title2'), yRule.middle('content')) + rotate(270)}>
+        <text className="y-title"
+          textAnchor="middle"
+          dominantBaseline="middle">
+          {valueColumn.title}
+        </text>
+      </g>
+    </>
+  );
+}
+
+
+export function XScaleTicks({ xRule, yRule, valueColumn, x, format }: { xRule: Rule<"content" | "title">, yRule: Rule<"labels" | "ticks" | "content" | "title">, valueColumn: ChartColumn<number>, x: d3.ScaleContinuousNumeric<number, number>, format?: (d: number) => string }) {
 
   var availableWidth = yRule.size("content");
 
@@ -60,21 +97,21 @@ export function XScaleTicks({ xRule, yRule, valueColumn, x, format }: { xRule: R
     <>
       <g className="x-line-group" transform={translate(xRule.start('content'), yRule.start('content'))}>
         {xTicks.map(t => <line key={t} className="y-line-group sf-transition"
-          transform={translate(x(t), 0)}
+          transform={translate(x(t)!, 0)}
           y1={yRule.size('content')}
           stroke="LightGray" />)}
       </g>
 
       <g className="x-tick-group" transform={translate(xRule.start('content'), yRule.start('ticks'))}>
         {xTicks.map(t => <line key={t} className="x-tick-group sf-transition"
-          transform={translate(x(t), 0)}
+          transform={translate(x(t)!, 0)}
           y2={yRule.size('ticks')}
           stroke="Black" />)}
       </g>
 
       <g className="x-label-group" transform={translate(xRule.start('content'), yRule.end('labels'))}>
         {xTicks.map(t => <text key={t} className="x-label sf-transition"
-          transform={translate(x(t), 0)}
+          transform={translate(x(t)!, 0)}
           textAnchor="middle">
           {xTickFormat(t)}
         </text>)}
@@ -91,7 +128,7 @@ export function XScaleTicks({ xRule, yRule, valueColumn, x, format }: { xRule: R
   );
 }
 
-export function XKeyTicks({ xRule, yRule, keyValues, keyColumn, x, showLines }: { xRule: Rule, yRule: Rule, keyValues: unknown[], keyColumn: ChartColumn<unknown>, x: d3.ScaleBand<string>, showLines?: boolean }) {
+export function XKeyTicks({ xRule, yRule, keyValues, keyColumn, x, showLines }: { xRule: Rule<"content">, yRule: Rule<"content" | "ticks" | "labels" | "title">, keyValues: unknown[], keyColumn: ChartColumn<unknown>, x: d3.ScaleBand<string>, showLines?: boolean }) {
 
   var orderedKeys = keyValues.orderBy(keyColumn.getKey);
   return (
@@ -108,15 +145,15 @@ export function XKeyTicks({ xRule, yRule, keyValues, keyColumn, x, showLines }: 
       <g className="x-key-tick-group" transform={translate(xRule.start('content') + (x.bandwidth() / 2), yRule.start('ticks'))}>
         {orderedKeys.map((t, i) => <line key={keyColumn.getKey(t)} className="x-key-tick sf-transition"
           transform={translate(x(keyColumn.getKey(t))!, 0)}
-          y2={yRule.start('labels' + (i % 2)) - yRule.start('ticks')}
+          y2={(i % 2) * yRule.size('labels') / 2}
           stroke="Black" />)}
       </g>
       {
         (x.bandwidth() * 2) > 60 &&
-        <g className="x-key-label-group" transform={translate(xRule.start('content') + (x.bandwidth() / 2), yRule.middle('labels0'))}>
+        <g className="x-key-label-group" transform={translate(xRule.start('content') + (x.bandwidth() / 2), yRule.middle('ticks'))}>
           {orderedKeys.map((t, i) => <TextEllipsis key={keyColumn.getKey(t)} maxWidth={x.bandwidth() * 2} className="x-key-label sf-transition"
             transform={translate(x(keyColumn.getKey(t))!, 0)}
-            y={yRule.middle('labels' + (i % 2)) - yRule.middle('labels0')}
+            y={yRule.size('labels') / 4 + (i % 2) * yRule.size('labels') / 2}
             dominantBaseline="middle"
             textAnchor="middle">
             {keyColumn.getNiceName(t)}
@@ -128,7 +165,7 @@ export function XKeyTicks({ xRule, yRule, keyValues, keyColumn, x, showLines }: 
   );
 }
 
-export function XTitle({ xRule, yRule, keyColumn }: { xRule: Rule, yRule: Rule, keyColumn: ChartColumn<unknown> }) {
+export function XTitle({ xRule, yRule, keyColumn }: { xRule: Rule<"content">, yRule: Rule<"title">, keyColumn: ChartColumn<unknown> }) {
   return (
     <g className="x-title-group" transform={translate(xRule.middle('content'), yRule.middle('title'))}>
       <text className="x-title"
@@ -140,7 +177,7 @@ export function XTitle({ xRule, yRule, keyColumn }: { xRule: Rule, yRule: Rule, 
   );
 }
 
-export function YKeyTicks({ xRule, yRule, keyValues, keyColumn, y, showLabels, showLines }: { xRule: Rule, yRule: Rule, keyValues: unknown[], keyColumn: ChartColumn<unknown>, y: d3.ScaleBand<string>, showLabels: boolean, showLines?: boolean }) {
+export function YKeyTicks({ xRule, yRule, keyValues, keyColumn, y, showLabels, showLines }: { xRule: Rule<"title" | "labels" | "ticks" | "content">, yRule: Rule<"content">, keyValues: unknown[], keyColumn: ChartColumn<unknown>, y: d3.ScaleBand<string>, showLabels: boolean, showLines?: boolean }) {
   var orderedKeys = keyValues.orderBy(keyColumn.getKey);
 
   return (

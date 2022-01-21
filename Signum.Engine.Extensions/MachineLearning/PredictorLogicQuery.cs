@@ -247,7 +247,7 @@ namespace Signum.Engine.MachineLearning
 
         public override PredictorColumnUsage Usage => PredictorSubQueryColumn.Usage.ToPredictorColumnUsage();
         public override QueryToken Token => PredictorSubQueryColumn.Token.Token;
-        public override PredictorColumnNullHandling NullHandling => PredictorSubQueryColumn.NullHandling.Value;
+        public override PredictorColumnNullHandling NullHandling => PredictorSubQueryColumn.NullHandling!.Value;
         public override PredictorColumnEncodingSymbol Encoding => PredictorSubQueryColumn.Encoding;
 
         public override string ToString()
@@ -286,8 +286,17 @@ namespace Signum.Engine.MachineLearning
     {
         public static readonly ObjectArrayComparer Instance = new ObjectArrayComparer();
 
-        public int Compare(object?[] x, object?[] y)
+        public int Compare(object?[]? x, object?[]? y)
         {
+            if (x == null && y == null)
+                return 0;
+
+            if (x == null)
+                return -1;
+
+            if (y == null)
+                return 1;
+
             if (x.Length != y.Length)
                 return x.Length.CompareTo(y.Length);
 
@@ -312,11 +321,16 @@ namespace Signum.Engine.MachineLearning
                 return 1;
 
             return ((IComparable)v1).CompareTo(v2);
-
         }
 
-        public bool Equals(object?[] x, object?[] y)
+        public bool Equals(object?[]? x, object?[]? y)
         {
+            if (x == null && y == null)
+                return true;
+
+            if (x == null || y == null)
+                return false;
+
             if (x.Length != y.Length)
                 return false;
 

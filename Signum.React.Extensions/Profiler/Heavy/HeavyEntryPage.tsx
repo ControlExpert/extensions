@@ -2,11 +2,12 @@ import * as React from 'react'
 import { Link } from 'react-router-dom'
 import * as d3 from 'd3'
 import { } from '@framework/Globals'
-import * as Navigator from '@framework/Navigator'
+import * as AppContext from '@framework/AppContext'
 import { API, HeavyProfilerEntry, StackTraceTS } from '../ProfilerClient'
 import { RouteComponentProps } from "react-router";
 import "./Profiler.css"
-import { useAPI, useSize, useAPIWithReload } from '../../../../Framework/Signum.React/Scripts/Hooks'
+import { useAPI, useSize, useAPIWithReload } from '@framework/Hooks'
+import { useTitle } from '@framework/AppContext'
 
 interface HeavyEntryProps extends RouteComponentProps<{ selectedIndex: string }> {
 
@@ -26,15 +27,15 @@ export default function HeavyEntry(p: HeavyEntryProps) {
   }
 
   const index = p.match.params.selectedIndex;
-  Navigator.setTitle("Heavy Profiler > Entry " + index);
+  useTitle("Heavy Profiler > Entry " + index);
 
   if (entries == undefined)
-    return <h3 className="display-6"><Link to="~/profiler/heavy">Heavy Profiler</Link> > Entry {index} (loading...) </h3>;
+    return <h3 className="display-6"><Link to="~/profiler/heavy">Heavy Profiler</Link> {">"} Entry {index} (loading...) </h3>;
 
   let current = entries.filter(a => a.fullIndex == p.match.params.selectedIndex).single();
   return (
     <div>
-      <h2 className="display-6"><Link to="~/profiler/heavy">Heavy Profiler</Link> > Entry {index}</h2>
+      <h2 className="display-6"><Link to="~/profiler/heavy">Heavy Profiler</Link> {">"} Entry {index}</h2>
       <label><input type="checkbox" checked={asyncDepth} onChange={a => setAsyncDepth(a.currentTarget.checked)} />Async Stack</label>
       <br />
       {entries && <HeavyProfilerDetailsD3 entries={entries} selected={current} asyncDepth={asyncDepth} />}
@@ -209,9 +210,9 @@ export function HeavyProfilerDetailsD3(p: HeavyProfilerDetailsD3Props) {
       .domain([min, max])
       .range([0, width]);
 
-    let entryHeight = y(1);
+    let entryHeight = y(1)!;
 
-    var filteredData = data.filter(a => a.end > min && a.beforeStart < max && (x(a.end) - x(a.beforeStart)) > 1);
+    var filteredData = data.filter(a => a.end > min && a.beforeStart < max && (x(a.end)! - x(a.beforeStart)!) > 1);
 
     function handleOnClick(e: React.MouseEvent<SVGGElement>, d: HeavyProfilerEntry) {
       if (d == p.selected) {
@@ -221,10 +222,10 @@ export function HeavyProfilerDetailsD3(p: HeavyProfilerDetailsD3Props) {
         let url = "~/profiler/heavy/entry/" + d.fullIndex;
 
         if (e.ctrlKey) {
-          window.open(Navigator.toAbsoluteUrl(url));
+          window.open(AppContext.toAbsoluteUrl(url));
         }
         else {
-          Navigator.history.push(url);
+          AppContext.history.push(url);
         }
       }
     }
@@ -237,18 +238,18 @@ export function HeavyProfilerDetailsD3(p: HeavyProfilerDetailsD3Props) {
               y={y(getDepth(d))}
               x={x(Math.max(min, d.beforeStart))}
               height={entryHeight - 1}
-              width={Math.max(0, x(Math.min(max, d.end)) - x(Math.max(min, d.beforeStart)))}
+              width={Math.max(0, x(Math.min(max, d.end))! - x(Math.max(min, d.beforeStart))!)}
               fill={d.color}
               stroke={d == sel ? '#000' : '#ccc'} />
             <rect className="shape-before"
-              y={y(getDepth(d)) + 1}
+              y={y(getDepth(d))! + 1}
               x={x(Math.max(min, d.beforeStart))}
               height={entryHeight - 2}
-              width={Math.max(0, x(Math.min(max, d.start)) - x(Math.max(min, d.beforeStart)))}
+              width={Math.max(0, x(Math.min(max, d.start))! - x(Math.max(min, d.beforeStart))!)}
               fill={d.color} />
             <text className="label label-top"
               y={y(getDepth(d))}
-              x={x(Math.max(min, d.start)) + 3}
+              x={x(Math.max(min, d.start))! + 3}
               dy={fontPadding + fontSize}
               fill={d == sel ? '#000' : '#fff'}>
               {d.elapsed}
@@ -256,7 +257,7 @@ export function HeavyProfilerDetailsD3(p: HeavyProfilerDetailsD3Props) {
             <text className="label label-bottom"
               y={y(getDepth(d))}
               dy={(2 * fontPadding) + (2 * fontSize)}
-              x={x(Math.max(min, d.start)) + 3}
+              x={x(Math.max(min, d.start))! + 3}
               fill={d == sel ? '#000' : '#fff'}>
               {d.role + (d.additionalData ? (" - " + d.additionalData.etc(30)) : "")}
             </text>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Signum.Entities.Processes;
 using Signum.Entities.Files;
 using System.Reflection;
@@ -13,7 +13,7 @@ namespace Signum.Entities.Printing
         public DateTime CreationDate { get; private set; } = TimeZoneManager.Now;
 
         [Ignore]
-        public FileTypeSymbol TestFileType { get; set; }
+        public FileTypeSymbol? TestFileType { get; set; }
 
         
         public FilePathEmbedded File { get; set; }
@@ -23,7 +23,7 @@ namespace Signum.Entities.Printing
         public DateTime? PrintedOn { get; set; }
 
         [ImplementedBy()]
-        public Lite<Entity> Referred { get; set; }
+        public Lite<Entity>? Referred { get; set; }
 
         public PrintLineState State { get; set; }
 

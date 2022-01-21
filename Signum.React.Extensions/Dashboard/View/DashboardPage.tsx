@@ -6,18 +6,12 @@ import * as Navigator from '@framework/Navigator'
 import { DashboardEntity } from '../Signum.Entities.Dashboard'
 import DashboardView from './DashboardView'
 import { RouteComponentProps } from "react-router";
-import * as QueryString from 'query-string'
-import * as AuthClient from '../../Authorization/AuthClient'
 import "../Dashboard.css"
-import { useAPI } from '../../../../Framework/Signum.React/Scripts/Hooks'
+import { useAPI } from '@framework/Hooks'
+import { QueryString } from '@framework/QueryString'
 
 interface DashboardPageProps extends RouteComponentProps<{ dashboardId: string }> {
 
-}
-
-interface DashboardPageState {
-  dashboard?: DashboardEntity;
-  entity?: Entity;
 }
 
 function getQueryEntity(props: DashboardPageProps): string {
@@ -38,7 +32,7 @@ export default function DashboardPage(p: DashboardPageProps) {
     <div>
       {!dashboard ? <h2 className="display-5">{JavascriptMessage.loading.niceToString()}</h2> :
         <div className="sf-show-hover">
-          {!AuthClient.navigatorIsReadOnly(DashboardEntity, { entity: dashboard, canExecute: {} } as EntityPack<Entity>) &&
+          {!Navigator.isReadOnly(DashboardEntity) &&
             <Link className="sf-hide float-right flip mt-3" style={{ textDecoration: "none" }} to={Navigator.navigateRoute(dashboard)}><FontAwesomeIcon icon="edit" />&nbsp;Edit</Link>
           }
           <h2 className="display-5">{getToString(dashboard)}</h2>
@@ -47,11 +41,11 @@ export default function DashboardPage(p: DashboardPageProps) {
       {entityKey &&
         <div style={rtl ? { float: "right", textAlign: "right" } : undefined}>
           {!entity ? <h3>{JavascriptMessage.loading.niceToString()}</h3> :
-            <h3>
-              {Navigator.isNavigable({ entity: entity, canExecute: {} } as EntityPack<Entity>) ?
-                <Link className="display-6" to={Navigator.navigateRoute(entity)}>{getToString(entity)}</Link> :
-                <span className="display-6">{getToString(entity)}</span>
-              }
+          <h3>
+            {Navigator.isViewable({ entity: entity, canExecute: {} } as EntityPack<Entity>) ?
+              <Link className="display-6" to={Navigator.navigateRoute(entity)}>{getToString(entity)}</Link> :
+              <span className="display-6">{getToString(entity)}</span>
+            }
               &nbsp;
             <small className="sf-type-nice-name">{Navigator.getTypeTitle(entity, undefined)}</small>
             </h3>
@@ -59,7 +53,7 @@ export default function DashboardPage(p: DashboardPageProps) {
         </div>
       }
 
-      {dashboard && (!entityKey || entity) && <DashboardView dashboard={dashboard} entity={entity || undefined} />}
+          {dashboard && (!entityKey || entity) && <DashboardView dashboard={dashboard} entity={entity || undefined} refreshKey={entity?.ticks} />}
     </div>
   );
 }

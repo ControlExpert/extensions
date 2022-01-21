@@ -28,8 +28,9 @@ namespace Signum.Engine.Cache
 {
     public interface ICacheMultiServerInvalidator
     {
-        void SendInvalidation(string tableName);
-        event Action<string> ReceiveInvalidation;
+        void Start();
+        void SendInvalidation(string cleanName);
+        event Action<string>? ReceiveInvalidation;
     }
 
     public static class CacheLogic
@@ -79,6 +80,7 @@ namespace Signum.Engine.Cache
                 if(CacheInvalidator != null)
                 {
                     CacheInvalidator!.ReceiveInvalidation += CacheInvalidator_ReceiveInvalidation;
+                    sb.Schema.BeforeDatabaseAccess += () => CacheInvalidator!.Start();
                 }
 
                 sb.Schema.SchemaCompleted += () => Schema_SchemaCompleted(sb);
@@ -88,12 +90,21 @@ namespace Signum.Engine.Cache
 
         static void Schema_SchemaCompleted(SchemaBuilder sb)
         {
-            foreach (var type in VirtualMList.RegisteredVirtualMLists.Keys)
+            foreach (var kvp in VirtualMList.RegisteredVirtualMLists)
             {
-                if (controllers.ContainsKey(type))
+                var type = kvp.Key;
+
+                if (controllers.TryGetCN(type) != null)
                 {
-                    foreach (var rType in VirtualMList.RegisteredVirtualMLists.GetOrThrow(type).Keys)
+                    foreach (var vml in kvp.Value)
                     {
+                        var rType = vml.Value.BackReferenceRoute.RootType;
+
+                        EntityData data = EntityDataOverrides.TryGetS(rType) ?? EntityKindCache.GetEntityData(rType);
+
+                        if (data == EntityData.Transactional)
+                            throw new InvalidOperationException($"Type {rType.Name} should be {nameof(EntityData)}.{nameof(EntityData.Master)} because is in a virtual MList of {type.Name} (Master and cached)");
+
                         TryCacheTable(sb, rType);
 
                         dependencies.Add(type, rType);
@@ -113,9 +124,9 @@ namespace Signum.Engine.Cache
             }
         }
 
-        static void CacheInvalidator_ReceiveInvalidation(string tableName)
+        static void CacheInvalidator_ReceiveInvalidation(string cleanName)
         {
-            Type type = TypeEntity.TryGetType(tableName)!;
+            Type type = TypeEntity.TryGetType(cleanName)!;
 
             var c = controllers.GetOrThrow(type)!;
 
@@ -169,7 +180,7 @@ namespace Signum.Engine.Cache
             Table table = Schema.Current.Table(type);
             DatabaseName? db = table.Name.Schema?.Database;
 
-            SqlConnector subConnector = ((SqlConnector)Connector.Current).ForDatabase(db);
+            SqlServerConnector subConnector = (SqlServerConnector)Connector.Current.ForDatabase(db);
 
             if (CacheLogic.LogWriter != null)
                 CacheLogic.LogWriter.WriteLine("Load ToListWithInvalidations {0} {1}".FormatWith(typeof(T).TypeName()), exceptionContext);
@@ -191,11 +202,11 @@ namespace Signum.Engine.Cache
             return list;
         }
 
-        public static void ExecuteDataReaderOptionalDependency(this SqlConnector connector, SqlPreCommandSimple preCommand, OnChangeEventHandler change, Action<FieldReader> forEach)
+        public static void ExecuteDataReaderOptionalDependency(this Connector connector, SqlPreCommandSimple preCommand, OnChangeEventHandler change, Action<FieldReader> forEach)
         {
             if (WithSqlDependency)
             {
-                connector.ExecuteDataReaderDependency(preCommand, change, StartSqlDependencyAndEnableBrocker, forEach, CommandType.Text);
+                ((SqlServerConnector)connector).ExecuteDataReaderDependency(preCommand, change, StartSqlDependencyAndEnableBrocker, forEach, CommandType.Text);
             }
             else
             {
@@ -263,7 +274,8 @@ namespace Signum.Engine.Cache
 
             lock (startKeyLock)
             {
-                SqlConnector connector = (SqlConnector)Connector.Current;
+                SqlServerConnector connector = (SqlServerConnector)Connector.Current;
+                bool isPostgree = false;
 
                 if (DropStaleServices)
                 {
@@ -271,7 +283,7 @@ namespace Signum.Engine.Cache
                     //http://rusanu.com/2007/11/10/when-it-rains-it-pours/
                     var staleServices = (from s in Database.View<SysServiceQueues>()
                                          where s.activation_procedure != null && !Database.View<SysProcedures>().Any(p => "[" + p.Schema().name + "].[" + p.name + "]" == s.activation_procedure)
-                                         select new ObjectName(new SchemaName(null, s.Schema().name), s.name)).ToList();
+                                         select new ObjectName(new SchemaName(null, s.Schema().name, isPostgree), s.name, isPostgree)).ToList();
 
                     foreach (var s in staleServices)
                     {
@@ -281,7 +293,7 @@ namespace Signum.Engine.Cache
 
                     var oldProcedures = (from p in Database.View<SysProcedures>()
                                          where p.name.Contains("SqlQueryNotificationStoredProcedure-") && !Database.View<SysServiceQueues>().Any(s => "[" + p.Schema().name + "].[" + p.name + "]" == s.activation_procedure)
-                                         select new ObjectName(new SchemaName(null, p.Schema().name), p.name)).ToList();
+                                         select new ObjectName(new SchemaName(null, p.Schema().name, isPostgree), p.name, isPostgree)).ToList();
 
                     foreach (var item in oldProcedures)
                     {
@@ -301,7 +313,7 @@ namespace Signum.Engine.Cache
 
                 foreach (var database in Schema.Current.DatabaseNames())
                 {
-                    SqlConnector sub = connector.ForDatabase(database);
+                    SqlServerConnector sub = (SqlServerConnector)connector.ForDatabase(database);
 
                     try
                     {
@@ -331,7 +343,7 @@ namespace Signum.Engine.Cache
 
                             SqlDependency.Start(sub.ConnectionString);
                         }
-                        else throw e;
+                        else throw;
                     }
                 }
 
@@ -419,22 +431,17 @@ namespace Signum.Engine.Cache
 
         public static void Shutdown()
         {
-            if (GloballyDisabled)
+            if (GloballyDisabled || !WithSqlDependency)
                 return;
 
-            var connector = ((SqlConnector)Connector.Current);
+            var connector = ((SqlServerConnector)Connector.Current);
             foreach (var database in Schema.Current.DatabaseNames())
             {
-                SqlConnector sub = connector.ForDatabase(database);
+                SqlServerConnector sub = (SqlServerConnector)connector.ForDatabase(database);
 
                 SqlDependency.Stop(sub.ConnectionString);
             }
 
-        }
-
-        static SqlPreCommandSimple GetDependencyQuery(ITable table)
-        {
-            return new SqlPreCommandSimple("SELECT {0} FROM {1}".FormatWith(table.Columns.Keys.ToString(c => c.SqlEscape(), ", "), table.Name));
         }
 
         class CacheController<T> : CacheControllerBase<T>, ICacheLogicController
@@ -534,7 +541,7 @@ namespace Signum.Engine.Cache
             {
                 AssertEnabled();
 
-                return cachedTable.TryGetToString(id.Value)!;
+                return cachedTable.TryGetToString(id!.Value)!;
             }
 
             public override void Complete(T entity, IRetriever retriver)
@@ -664,9 +671,11 @@ namespace Signum.Engine.Cache
 
         static void TryCacheSubTables(Type type, SchemaBuilder sb)
         {
-            List<Type> relatedTypes = sb.Schema.Table(type).DependentTables()
+            HashSet<Type> relatedTypes = sb.Schema.Table(type)
+                .DependentTables()
                 .Where(a => !a.Value.IsEnum)
-                .Select(t => t.Key.Type).ToList();
+                .Select(t => t.Key.Type)
+                .ToHashSet();
 
             dependencies.Add(type);
             inverseDependencies.Add(type);
@@ -720,10 +729,7 @@ Remember that the Start could be called with an empty database!");
                 if (controller != null)
                     controller.NotifyInvalidated();
 
-                var ci = CacheInvalidator;
-
-                if (ci != null)
-                    ci.SendInvalidation(TypeLogic.GetCleanName(stype));
+                CacheInvalidator?.SendInvalidation(TypeLogic.GetCleanName(stype));
             }
         }
 
@@ -881,7 +887,7 @@ Remember that the Start could be called with an empty database!");
             var asssumeAsInvalidation = CacheLogic.assumeMassiveChangesAsInvalidations.Value?.TryGetS(typeof(T));
 
             if (asssumeAsInvalidation == null)
-                throw new InvalidOperationException("Impossible to determine if the massive operation will affect the semi-cached instances of {1}. Execute CacheLogic.AssumeMassiveChangesAsInvalidations to desanbiguate.");
+                throw new InvalidOperationException($"Impossible to determine if the massive operation will affect the semi-cached instances of {typeof(T).TypeName()}. Execute CacheLogic.AssumeMassiveChangesAsInvalidations to desanbiguate.");
 
             return asssumeAsInvalidation.Value;
         }

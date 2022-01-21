@@ -1,14 +1,14 @@
 import * as React from 'react'
-import * as moment from 'moment'
+import { DateTime } from 'luxon'
 import { classes, Dic } from '@framework/Globals'
 import { ValueLine, EntityLine, EntityCombo } from '@framework/Lines'
 import { FilterOptionParsed } from '@framework/Search'
 import { TypeContext } from '@framework/TypeContext'
 import * as Finder from '@framework/Finder'
-import { Binding, IsByAll, getTypeInfos, TypeReference } from '@framework/Reflection'
+import { Binding, IsByAll, tryGetTypeInfos, TypeReference, getTypeInfos } from '@framework/Reflection'
 import { QueryTokenEmbedded, UserAssetMessage } from '../Signum.Entities.UserAssets'
 import { QueryFilterEmbedded, PinnedQueryFilterEmbedded } from '../../UserQueries/Signum.Entities.UserQueries'
-import { QueryDescription, SubTokensOptions, isFilterGroupOptionParsed, FilterConditionOptionParsed, isList, FilterType, FilterGroupOptionParsed, PinnedFilter } from '@framework/FindOptions'
+import { QueryDescription, SubTokensOptions, isFilterGroupOptionParsed, FilterConditionOptionParsed, isList, FilterType, FilterGroupOptionParsed, PinnedFilter, PinnedFilterParsed } from '@framework/FindOptions'
 import { Lite, Entity, parseLite, liteKey } from "@framework/Signum.Entities";
 import * as Navigator from "@framework/Navigator";
 import FilterBuilder, { MultiValue, FilterConditionComponent, FilterGroupComponent, RenderValueContext } from '@framework/SearchControl/FilterBuilder';
@@ -68,13 +68,13 @@ export default function FilterBuilderEmbedded(p: FilterBuilderEmbeddedProps) {
         })));
       }
 
-      function toPinnedQueryFilterEmbedded(pinned: PinnedFilter): PinnedQueryFilterEmbedded {
+      function toPinnedQueryFilterEmbedded(p: PinnedFilter): PinnedQueryFilterEmbedded {
         return PinnedQueryFilterEmbedded.New({
-          label: pinned.label,
-          column: pinned.column,
-          row: pinned.row,
-          active: pinned.active,
-          splitText: pinned.splitText,
+          label: typeof p.label == "function" ? p.label() : p.label,
+          column: p.column,
+          row: p.row,
+          active: p.active,
+          splitText: p.splitText,
         });
       }
     }
@@ -163,32 +163,37 @@ FilterBuilderEmbedded.toFilterOptionParsed = async function toFilterOptionParsed
 
         const pinned = gr.key.pinned;
 
-        return {
+        const filterCondition: FilterConditionOptionParsed = {
           token: completer.get(gr.key.token!.tokenString),
-          operation: gr.key.operation,
+          operation: gr.key.operation ?? "EqualTo",
           value: gr.key.valueString,
           frozen: false,
-          pinned: !pinned ? undefined : toPinnedFilter(pinned),
-        } as FilterConditionOptionParsed;
+          pinned: !pinned ? undefined : toPinnedFilterParsed(pinned),
+        };
+
+        return filterCondition;
       }
       else {
 
         const pinned = gr.key.pinned;
 
-        return {
-          token: gr.key.token ? completer.get(gr.key.token.tokenString) : null,
+        const filterGroup: FilterGroupOptionParsed = {
+          token: gr.key.token ? completer.get(gr.key.token.tokenString) : undefined,
           groupOperation: gr.key.groupOperation!,
           filters: toFilterList(gr.elements, indent + 1),
-          value: gr.key.valueString,
+          value: gr.key.valueString ?? undefined,
           frozen: false,
-          pinned: !pinned ? undefined : toPinnedFilter(pinned),
-        } as FilterGroupOptionParsed;
+          expanded: false,
+          pinned: !pinned ? undefined : toPinnedFilterParsed(pinned),
+        };
+
+        return filterGroup;
       }
     });
 
-    function toPinnedFilter(pinned: PinnedQueryFilterEmbedded): PinnedFilter {
+    function toPinnedFilterParsed(pinned: PinnedQueryFilterEmbedded): PinnedFilterParsed {
       return {
-        label: pinned.label ?? undefined,
+        label: pinned.label ||  undefined,
         column: pinned.column ?? undefined,
         row: pinned.row ?? undefined,
         active: pinned.active || undefined,
@@ -250,8 +255,8 @@ export function EntityLineOrExpression(p: EntityLineOrExpressionProps) {
     }
   }, [p.ctx.value]);
 
-  function getSwitchModelButton(isValue: boolean) : React.ReactElement<any> {
-    return (<a href="#" className={classes("sf-line-button", "sf-remove", "btn input-group-text")}
+  function getSwitchModelButton(isValue: boolean): React.ReactElement<any> {
+    return (<a href="#" className={classes("sf-line-button", "sf-remove", "btn input-group-text", p.ctx.readOnly  && "disabled")}
       onClick={e => { e.preventDefault(); liteRef.current = isValue ? undefined : null; forceUpdate() }}
       title={isValue ? UserAssetMessage.SwitchToExpression.niceToString() : UserAssetMessage.SwitchToValue.niceToString()}>
       <FontAwesomeIcon icon={[isValue ? "far" : "fas", "edit"]} />
@@ -337,7 +342,7 @@ export function ValueLineOrExpression(p: ValueLineOrExpressionProps) {
   const type = p.type;
 
   if (p.filterType == "Enum") {
-    const ti = getTypeInfos(type).single();
+    const ti = tryGetTypeInfos(type).single();
     if (!ti)
       throw new Error(`EnumType ${type.name} not found`);
     const members = Dic.getValues(ti.members).filter(a => !a.isIgnoredEnum);
@@ -347,7 +352,7 @@ export function ValueLineOrExpression(p: ValueLineOrExpressionProps) {
   }
 }
 
-const serverFormat = "YYYY/MM/DD hh:mm:ss";
+const serverFormat = "yyyy/MM/dd HH:mm:ss";
 
 function parseValue(str: string | null | undefined, filterType: FilterType | undefined): string | number | boolean | null | undefined {
   return str == null ? null :
@@ -360,9 +365,9 @@ function parseValue(str: string | null | undefined, filterType: FilterType | und
 }
 
 function parseDate(str: string) {
-  const parsed = moment(str, serverFormat, true).format();
+  const parsed = DateTime.fromFormat(str, serverFormat).toISO();
 
-  return parsed == "Invalid date" ? undefined : parsed;
+  return parsed ?? undefined;
 }
 
 function toStringValue(value: string | number | boolean | null | undefined, filterType: FilterType | undefined): string | null {
@@ -370,7 +375,7 @@ function toStringValue(value: string | number | boolean | null | undefined, filt
     filterType == "Integer" ? value.toString() :
       filterType == "Decimal" ? value.toString() :
         filterType == "Boolean" ? (value ? "True" : "False") :
-          filterType == "DateTime" ? moment(value as string).format(serverFormat) :
+          filterType == "DateTime" ? DateTime.fromISO(value as string).toFormat(serverFormat) :
             filterType == "Enum" || filterType == "Guid" || filterType == "String" ? value as string :
               null;
 

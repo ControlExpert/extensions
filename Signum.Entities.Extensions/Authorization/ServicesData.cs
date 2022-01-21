@@ -22,7 +22,9 @@ namespace Signum.Entities.Authorization
 
         public A GetAllowed(K key)
         {
+#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
             if (OverrideDictionary != null && OverrideDictionary.TryGetValue(key, out A result))
+#pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
                 return result;
 
             return DefaultAllowed(key);
@@ -153,7 +155,7 @@ namespace Signum.Entities.Authorization
     {
         public override string ToString()
         {
-            return AuthMessage._0RulesFor1.NiceToString().FormatWith(typeof(TypeEntity).NiceName(), Role);
+            return AuthAdminMessage._0RulesFor1.NiceToString().FormatWith(typeof(TypeEntity).NiceName(), Role);
         }
     }
 
@@ -166,8 +168,10 @@ namespace Signum.Entities.Authorization
 
         public AuthThumbnail? Queries { get; set; }
 
-        public ReadOnlyCollection<TypeConditionSymbol> AvailableConditions { get; set; }
+        public List<TypeConditionSymbol> AvailableConditions { get; set; }
     }
+
+  
 
     [Serializable]
     public class TypeAllowedAndConditions : ModelEntity, IEquatable<TypeAllowedAndConditions>
@@ -205,8 +209,11 @@ namespace Signum.Entities.Authorization
         public MList<TypeConditionRuleEmbedded> Conditions { get; set; } = new MList<TypeConditionRuleEmbedded>();
 
         public override bool Equals(object? obj) => obj is TypeAllowedAndConditions tac && Equals(tac);
-        public bool Equals(TypeAllowedAndConditions other)
+        public bool Equals(TypeAllowedAndConditions? other)
         {
+            if (other == null)
+                return false;
+
             return this.fallback.Equals(other.fallback) &&
                 this.Conditions.SequenceEqual(other.Conditions);
         }
@@ -298,8 +305,11 @@ namespace Signum.Entities.Authorization
 
         public TypeAllowed Allowed { get; set; }
 
-        public bool Equals(TypeConditionRuleEmbedded other)
+        public bool Equals(TypeConditionRuleEmbedded? other)
         {
+            if (other == null)
+                return false;
+
             return TypeCondition.Equals(other.TypeCondition) &&
                 Allowed.Equals(other.Allowed);
         }
@@ -328,7 +338,7 @@ namespace Signum.Entities.Authorization
 
         public override string ToString()
         {
-            return AuthMessage._0RulesFor1.NiceToString().FormatWith(typeof(PropertyRouteEntity).NiceName(), Role);
+            return AuthAdminMessage._0RulesFor1.NiceToString().FormatWith(typeof(PropertyRouteEntity).NiceName(), Role);
         }
     }
     [Serializable]
@@ -345,7 +355,7 @@ namespace Signum.Entities.Authorization
 
         public override string ToString()
         {
-            return AuthMessage._0RulesFor1.NiceToString().FormatWith(typeof(QueryEntity).NiceName(), Role);
+            return AuthAdminMessage._0RulesFor1.NiceToString().FormatWith(typeof(QueryEntity).NiceName(), Role);
         }
     }
     [Serializable]
@@ -360,7 +370,7 @@ namespace Signum.Entities.Authorization
 
         public override string ToString()
         {
-            return AuthMessage._0RulesFor1.NiceToString().FormatWith(typeof(OperationSymbol).NiceName(), Role);
+            return AuthAdminMessage._0RulesFor1.NiceToString().FormatWith(typeof(OperationSymbol).NiceName(), Role);
         }
     }
     [Serializable]
@@ -371,7 +381,7 @@ namespace Signum.Entities.Authorization
     {
         public override string ToString()
         {
-            return AuthMessage._0RulesFor1.NiceToString().FormatWith(typeof(PermissionSymbol).NiceName(), Role);
+            return AuthAdminMessage._0RulesFor1.NiceToString().FormatWith(typeof(PermissionSymbol).NiceName(), Role);
         }
     }
     [Serializable]

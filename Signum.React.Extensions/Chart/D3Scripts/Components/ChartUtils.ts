@@ -1,11 +1,13 @@
+import { DateTime, DurationUnit } from "luxon"
 import * as d3 from "d3"
-import * as moment from "moment"
 import * as d3sc from "d3-scale-chromatic";
 import { ChartTable, ChartColumn, ChartRow } from "../../ChartClient"
 import { parseLite } from "@framework/Signum.Entities"
 import * as Navigator from '@framework/Navigator'
 import { coalesce, Dic } from "@framework/Globals";
-import { getTypeInfo } from "@framework/Reflection";
+import { getTypeInfo, tryGetTypeInfo } from "@framework/Reflection";
+import { ChartRequestModel } from "../../Signum.Entities.Chart";
+import { isFilterGroupOption, isFilterGroupOptionParsed, FilterConditionOptionParsed, FilterOptionParsed, QueryToken, FilterConditionOption } from "@framework/FindOptions";
 
 
 
@@ -52,8 +54,10 @@ export function scaleFor(column: ChartColumn<any>, values: number[], minRange: n
 
   if (scaleName == "MinMax") {
     if (column.type == "Date" || column.type == "DateTime") {
+      var dates = values.map(d => new Date(d));
+
       const scale = d3.scaleTime()
-        .domain(values)
+        .domain([d3.min(dates)!, d3.max(dates)!])
         .range([minRange, maxRange]);
 
       const f = function (d: string) { return scale(new Date(d)); } as any as d3.ScaleContinuousNumeric<number, number>;
@@ -95,50 +99,159 @@ export function insertPoint(keyColumn: ChartColumn<any>, valueColumn: ChartColum
   }
 }
 
-export function completeValues(column: ChartColumn<unknown>, values: unknown[], completeValues: string | null | undefined, insertPoint: "Middle" | "Before" | "After"): unknown[] {
+
+export function completeValues(column: ChartColumn<unknown>, values: unknown[], completeValues: string | null | undefined, filterOptions: FilterOptionParsed[], insertPoint: "Middle" | "Before" | "After"): unknown[] {
 
   if (completeValues == null || completeValues == "No")
     return values;
 
+  function normalizeToken(qt: QueryToken): { normalized: QueryToken, lastPart?: QueryToken } {
+    if ((qt.type.name == "Date" || qt.type.name == "DateTime") &&
+      qt.parent && (qt.parent.type.name == "Date" || qt.parent.type.name == "DateTime"))
+      switch (qt.key) {
+        case "SecondStart":
+        case "MinuteStart":
+        case "HourStart":
+        case "Date":
+        case "WeekStart":
+        case "MonthStart":
+        case "MonthStart":
+          return {
+            normalized: qt.parent,
+            lastPart : qt,
+          };
+      }
+
+    return {
+      normalized: qt,
+      lastPart: undefined
+    };
+  }
+
+  function durationUnit(lastPart: string): DurationUnit {
+    switch (lastPart) {
+      case "SecondStart": return "second";
+      case "MinuteStart": return "minute";
+      case "HourStart": return "hour";
+      case "Date": return "day";
+      case "WeekStart": return "week";
+      case "MonthStart": return "month";
+      default: throw new Error("Unexpected " + lastPart);
+    }
+  }
+
+  function tryCeil(date: string | null | undefined, unit: DurationUnit) {
+    if (date == null)
+      return undefined;
+
+    return ceil(DateTime.fromISO(date), unit).toISO();
+  }
+
+
+  function ceil(date: DateTime, unit: DurationUnit) {
+
+    if (date.toMillis() == date.startOf(unit).toMillis())
+      return date;
+
+    return date.startOf(unit).plus({ [unit]: 1 });
+  }
+ 
+  function tryFloor(date: string | null | undefined, unit: DurationUnit) {
+    if (date == null)
+      return undefined;
+
+    return floor(DateTime.fromISO(date), unit).toISO();
+  }
+
+  function floor(date: DateTime, unit: DurationUnit) {
+
+    return date.startOf(unit);
+  }
+
+  const columnNomalized = normalizeToken(column.token!);  
+
+  const machingFilters = column.token && (completeValues == "FromFilters" || completeValues == "Auto") ?
+    (filterOptions.filter(f => !isFilterGroupOptionParsed(f)) as FilterConditionOptionParsed[])
+      .filter(f => f.token && normalizeToken(f.token).normalized.fullKey == columnNomalized.normalized.fullKey) :
+    [];
+
+  if (completeValues == "FromFilters" && machingFilters.length == 0)
+    return values;
+
+  const isAuto = completeValues == "Auto";
+
+  const isInFilter = machingFilters.firstOrNull(a => a.operation == "IsIn");
+
+  if (isInFilter)
+    return complete(values, isInFilter.value as unknown[], column, insertPoint);
+
   if (column.type == "Lite" || column.type == "String")
     return values;
 
-  const isAuto = completeValues == "Auto"
-
   if (column.type == "Date" || column.type == "DateTime") {
 
-    const min = d3.min(values as string[]);
-    const max = d3.max(values as string[]);
-
-    if (min == undefined || max == undefined)
-      return values; 
-
-    const minMoment = moment(min);
-    const maxMoment = moment(max);
-
-    const lastPart = column.token!.fullKey.tryAfterLast('.');
-
-    const unit: moment.unitOfTime.Base | null =
-      lastPart == "SecondStart" ? "s" :
-        lastPart == "MinuteStart" ? "m" :
-          lastPart == "HourStart" ? "h" :
-            lastPart == "Date" ? "d" :
-              lastPart == "WeekStart" ? "w" :
-                lastPart == "MonthStart" ? "M" :
-                  null;
+    const unit: DurationUnit | null = columnNomalized.lastPart != null ? durationUnit(columnNomalized.lastPart.key) :
+      columnNomalized.normalized.type.name == "Date" ? "day" : null;
 
     if (unit == null)
       return values;
 
+    const min = d3.max(machingFilters.filter(a => a.operation == "GreaterThan" || a.operation == "GreaterThanOrEqual" || a.operation == "EqualTo")
+      .map(f => {
+        const pair = normalizeToken(f.token!);
+
+        const value = DateTime.fromISO(f.value);
+
+        //Date.MonthStart >  1.4.2000
+        //             Min-> 1.5.2000
+        //Date.MonthStart >= 1.4.2000
+        //             Min-> 1.4.2000
+        //Date.MonthStart == 1.4.2000
+        //             Min-> 1.4.2000
+
+        const newUnit = pair.lastPart != null ? durationUnit(pair.lastPart.key) : unit;
+
+        const newValue = f.operation == "GreaterThan" ? floor(value, newUnit).plus({ [newUnit]: 1 }) : floor(value, newUnit);
+
+        return newValue.toISO();
+      })) ?? tryFloor(d3.min(values as string[]), unit);
+
+    const max = d3.min(machingFilters.filter(a => a.operation == "LessThan" || a.operation == "LessThanOrEqual" || a.operation == "EqualTo")
+      .map(a => {
+        const pair = normalizeToken(a.token!);
+        let value = DateTime.fromISO(a.value);
+
+        //Date.MonthStart <  1.4.2000
+        //             Max   1.4.2000
+        //Date.MonthStart <= 1.4.2000
+        //                   1.5.2000
+        //Date.MonthStart == 1.4.2000
+        //             Max   1.5.2000
+
+        const newUnit = pair.lastPart != null ? durationUnit(pair.lastPart.key) : unit;
+
+        const newValue = a.operation == "LessThan" ? ceil(value, newUnit) : floor(value, newUnit).plus({ [newUnit]: 1 }); 
+
+        return newValue.toISO();
+      })) ?? tryCeil(d3.max(values as string[]), unit);
+
+
+    if (min == undefined  || max == undefined)
+      return values; 
+
+    const minDate = DateTime.fromISO(min);
+    const maxDate = DateTime.fromISO(max);
+    let date = minDate;
+
     const allValues: string[] = [];
     const limit = isAuto ? values.length * 2 : null;
-    while (minMoment <= maxMoment) {
+    while (date < maxDate) {
 
       if (limit != null && allValues.length > limit)
         return values;
 
-      allValues.push(minMoment.format());
-      minMoment.add(unit, 1);
+      allValues.push(column.token!.type.name == "Date" ? date.toISODate() : date.toISO());
+      date = date.plus({ [unit]: 1 });
     }
 
     return complete(values, allValues, column, insertPoint);
@@ -146,42 +259,49 @@ export function completeValues(column: ChartColumn<unknown>, values: unknown[], 
 
   if (column.type == "Enum") {
 
-    var typeName = column.token!.type.name; 
+    const typeName = column.token!.type.name; 
     
     if (typeName == "boolean") {
       return complete(values, [false, true], column, insertPoint);
     }
 
-    var typeInfo = getTypeInfo(column.token!.type.name);
+    const typeInfo = tryGetTypeInfo(column.token!.type.name);
     if (typeInfo == null)
       throw new Error("No Metadata found for " + typeName);
 
-    var allValues = Dic.getValues(typeInfo.members).filter(a => !a.isIgnoredEnum).map(a => a.name);
+    const allValues = Dic.getValues(typeInfo.members).filter(a => !a.isIgnoredEnum).map(a => a.name);
 
     return complete(values, allValues, column, insertPoint);
   }
 
   if (column.type == "Integer" || column.type == "Real" || column.type == "RealGroupable") {
 
-    const min = d3.min(values as number[]) as number | undefined;
-    const max = d3.max(values as number[]) as number | undefined;
-
-    if (min == undefined || max == undefined)
-      return values;
-
     const lastPart = column.token!.fullKey.tryAfterLast('.');
-    
-    const step: number | null = lastPart != null && lastPart.startsWith("Step") ? parseFloat(lastPart.after("Step").replace("_", ".")) : 
-        (column.type == "Integer" ? 1 : null);
+
+    const step: number | null = lastPart != null && lastPart.startsWith("Step") ? parseFloat(lastPart.after("Step").replace("_", ".")) :
+      (column.type == "Integer" ? 1 : null);
 
     if (step == null)
+      return values;
+
+    const minFilter = machingFilters.firstOrNull(a => a.operation == "GreaterThan" || a.operation == "GreaterThanOrEqual");
+    const min = minFilter == null ? d3.min(values as number[]) :
+      minFilter.operation == "GreaterThan" ? minFilter.value as number + step :
+        minFilter.operation == "GreaterThanOrEqual" ? minFilter.value : undefined;
+
+    const maxFilter = machingFilters.firstOrNull(a => a.operation == "LessThan" || a.operation == "LessThanOrEqual");
+    const max = maxFilter == null ? d3.min(values as number[]) :
+      maxFilter.operation == "LessThan" ? maxFilter.value as number - step :
+        maxFilter.operation == "LessThanOrEqual" ? maxFilter.value : undefined; 
+
+    if (min == undefined || max == undefined)
       return values;
 
     const allValues: number[] = [];
     const limit = isAuto ? values.length * 2 : null;
     if (step < 1) {
-      var inv = 1 / step;
-      var v = min;
+      const inv = 1 / step;
+      let v = min;
       while (v <= max) {
 
         if (limit != null && allValues.length > limit)
@@ -191,7 +311,7 @@ export function completeValues(column: ChartColumn<unknown>, values: unknown[], 
         v = Math.round((v + step) * inv) / inv;
       }
     } else {
-      var v = min;
+      let v = min;
       while (v <= max) {
         if (limit != null && allValues.length > limit)
           return values;
@@ -212,14 +332,14 @@ function complete(values: unknown[], allValues: unknown[], column: ChartColumn<u
 
     const allValuesDic = allValues.toObject(column.getKey);
     
-    var oldValues = values.filter(a => !allValuesDic.hasOwnProperty(column.getKey(a)));
+    const oldValues = values.filter(a => !allValuesDic.hasOwnProperty(column.getKey(a)));
 
     return [...column.orderByType == "Descending" ? allValues.reverse() : allValues, ...oldValues];
   }
   else {
     const valuesDic = values.toObject(column.getKey);
     
-    var newValues = allValues.filter(a => !valuesDic.hasOwnProperty(column.getKey(a)));
+    const newValues = allValues.filter(a => !valuesDic.hasOwnProperty(column.getKey(a)));
 
     if (insertPoint == "Before")
       return [...newValues, ...values];

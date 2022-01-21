@@ -12,7 +12,7 @@ import InitialMessage from './Components/InitialMessage';
 
 export default function renderScatterplot({ data, width, height, parameters, loading, onDrillDown, initialLoad }: ChartClient.ChartScriptProps): React.ReactElement<any> {
 
-  var xRule = new Rule({
+  var xRule = Rule.create({
     _1: 5,
     title: 15,
     _2: 5,
@@ -24,7 +24,7 @@ export default function renderScatterplot({ data, width, height, parameters, loa
   }, width);
   //xRule.debugX(chart)
 
-  var yRule = new Rule({
+  var yRule = Rule.create({
     _1: 5,
     content: '*',
     ticks: 4,
@@ -51,7 +51,6 @@ export default function renderScatterplot({ data, width, height, parameters, loa
   var verticalColumn = data.columns.c2! as ChartClient.ChartColumn<number>;
 
   var x = scaleFor(horizontalColumn, data.rows.map(horizontalColumn.getValue), 0, xRule.size('content'), parameters["HorizontalScale"]);
-
   var y = scaleFor(verticalColumn, data.rows.map(verticalColumn.getValue), 0, yRule.size('content'), parameters["VerticalScale"]);
 
   var pointSize = parseInt(parameters["PointSize"]);
@@ -65,8 +64,11 @@ export default function renderScatterplot({ data, width, height, parameters, loa
     var scaleFunc = scaleFor(colorKeyColumn, data.rows.map(colorKeyColumn.getValue) as number[], 0, 1, parameters["ColorScale"]);
     var colorInterpolate = parameters["ColorInterpolate"];
     var colorInterpolation = ChartUtils.getColorInterpolation(colorInterpolate);
-    color = r => colorInterpolation!(scaleFunc(colorKeyColumn.getValue(r) as number));
+    color = r => colorInterpolation!(scaleFunc(colorKeyColumn.getValue(r) as number)!);
   }
+
+  var keyColumns: ChartClient.ChartColumn<any>[]= data.columns.entity ? [data.columns.entity] :
+    [colorKeyColumn, horizontalColumn, verticalColumn].filter(a => a.token  && a.token.queryTokenType != "Aggregate")
 
   return (
     <>
@@ -75,15 +77,15 @@ export default function renderScatterplot({ data, width, height, parameters, loa
         <YScaleTicks xRule={xRule} yRule={yRule} valueColumn={verticalColumn} y={y} />
 
         {parameters["DrawingMode"] == "Svg" &&
-          data.rows.map((r, i) => <g key={i} className="shape-serie sf-transition"
+          data.rows.map(r => <g key={keyColumns.map(c => c.getValueKey(r)).join("/")} className="shape-serie sf-transition"
             transform={translate(xRule.start('content'), yRule.end('content')) + (initialLoad ? scale(1, 0) : scale(1, 1))}>
             <circle className="shape sf-transition"
-              transform={translate(x(horizontalColumn.getValue(r)), -y(verticalColumn.getValue(r)))}
+              transform={translate(x(horizontalColumn.getValue(r))!, -y(verticalColumn.getValue(r))!)}
               stroke={colorKeyColumn.getValueColor(r) ?? color(r)}
               fill={colorKeyColumn.getValueColor(r) ?? color(r)}
               shapeRendering="initial"
               r={pointSize}
-              onClick={e => onDrillDown(r)}
+              onClick={e => onDrillDown(r, e)}
               cursor="pointer">
               <title>
                 {colorKeyColumn.getValueNiceName(r) +
@@ -118,31 +120,35 @@ export default function renderScatterplot({ data, width, height, parameters, loa
   );
 }
 
-class CanvasScatterplot extends React.Component<{
-  xRule: Rule,
-  yRule: Rule,
+function CanvasScatterplot(p: {
+  xRule: Rule<"content">,
+  yRule: Rule<"content">,
   colorKeyColumn: ChartClient.ChartColumn<unknown>,
   horizontalColumn: ChartClient.ChartColumn<number>,
   verticalColumn: ChartClient.ChartColumn<number>,
   pointSize: number,
   data: ChartClient.ChartTable,
-  onDrillDown: (e: ChartRow) => void,
+  onDrillDown: (r: ChartRow, e: MouseEvent) => void,
   color: (val: ChartRow) => string,
   x: d3.ScaleContinuousNumeric<number, number>,
   y: d3.ScaleContinuousNumeric<number, number>,
-}> {
+}) {
 
-  componentDidMount() {
-    var { xRule, yRule, horizontalColumn, verticalColumn, colorKeyColumn, data, pointSize, onDrillDown, color, x, y } = this.props;
+  var cRef = React.useRef<HTMLCanvasElement>(null);
+  var vcRef = React.useRef<HTMLCanvasElement>(null);
+  var colorDataRef = React.useRef<{ [key: string]: ChartRow }>();
 
+  React.useEffect(() => {
+
+    var { xRule, yRule, horizontalColumn, verticalColumn, colorKeyColumn, data, pointSize, onDrillDown, color, x, y } = p;
     var w = xRule.size('content');
     var h = yRule.size('content');
-    var c = this.c!;
-    var vc = this.vc!;
+    var c = cRef.current!;
+    var vc = vcRef.current!;
 
     const ctx = c.getContext("2d")!;
     const vctx = vc.getContext("2d")!;
-    var colorToData: { [key: string]: ChartRow } = {};
+    var colorToData: { [key: string]: ChartRow } = colorDataRef.current = {};
     ctx.clearRect(0, 0, w, h);
     vctx.clearRect(0, 0, w, h);
     data.rows.forEach((r, i) => {
@@ -156,8 +162,8 @@ class CanvasScatterplot extends React.Component<{
       vctx.strokeStyle = vColor;
       colorToData[vColor] = r;
 
-      var xVal = x(horizontalColumn.getValue(r));
-      var yVal = h - y(verticalColumn.getValue(r));
+      var xVal = x(horizontalColumn.getValue(r))!;
+      var yVal = h - y(verticalColumn.getValue(r))!;
 
       ctx.beginPath();
       ctx.arc(xVal, yVal, pointSize, 0, 2 * Math.PI);
@@ -171,11 +177,13 @@ class CanvasScatterplot extends React.Component<{
 
     });
 
-    var getVirtualColor = (index: number): string => d3.rgb(
-      Math.floor(index / 256 / 256) % 256,
-      Math.floor(index / 256) % 256,
-      index % 256)
-      .toString();
+    function getVirtualColor(index: number): string {
+      return d3.rgb(
+        Math.floor(index / 256 / 256) % 256,
+        Math.floor(index / 256) % 256,
+        index % 256)
+        .toString();
+    }
 
     c.addEventListener('mousemove', function (e) {
       const imageData = vctx.getImageData(e.offsetX, e.offsetY, 1, 1);
@@ -183,7 +191,7 @@ class CanvasScatterplot extends React.Component<{
       const r = colorToData[color];
       if (r) {
         c.style.cursor = "pointer";
-        c.setAttribute("title", colorKeyColumn.getNiceName(r) +
+        c.setAttribute("title", colorKeyColumn.getValueNiceName(r) +
           ("\n" + horizontalColumn.title + ": " + horizontalColumn.getValueNiceName(r)) +
           ("\n" + verticalColumn.title + ": " + verticalColumn.getValueNiceName(r)));
       } else {
@@ -198,26 +206,21 @@ class CanvasScatterplot extends React.Component<{
       const color = d3.rgb.apply(null, imageData.data).toString();
       const p = colorToData[color];
       if (p) {
-        onDrillDown(p);
+        onDrillDown(p, e);
       }
     });
-  }
+  });
 
-  c?: HTMLCanvasElement | null;
-  vc?: HTMLCanvasElement | null;
 
-  render() {
+  var { xRule, yRule } = p;
 
-    var { xRule, yRule } = this.props;
-
-    var w = xRule.size('content');
-    var h = yRule.size('content');
-    return (
-      <>
-        <canvas ref={c => this.c = c} style={{ width: w, height: h, position: "absolute", left: xRule.start('content') + 'px', top: yRule.start('content') + 'px' }} />
-        <canvas ref={c => this.vc = c} style={{ width: w, height: h, position: "absolute", left: xRule.start('content') + 'px', top: yRule.start('content') + 'px' }} />
-      </>
-    );
-  }
+  var w = xRule.size('content');
+  var h = yRule.size('content');
+  return (
+    <>
+      <canvas ref={vcRef} width={w} height={h} style={{ position: "absolute", left: xRule.start('content') + 'px', top: yRule.start('content') + 'px', opacity: 0 }} />
+      <canvas ref={cRef} width={w} height={h} style={{ position: "absolute", left: xRule.start('content') + 'px', top: yRule.start('content') + 'px' }} />
+    </>
+  );
 }
 

@@ -6,7 +6,10 @@ import { TypeContext } from '@framework/TypeContext'
 import { getTypeInfo } from '@framework/Reflection'
 import { API } from './UserAssetClient'
 import { UserAssetMessage, UserAssetPreviewModel, EntityAction } from './Signum.Entities.UserAssets'
-import { useForceUpdate, useTitle } from '@framework/Hooks'
+import { useForceUpdate } from '@framework/Hooks'
+import { useTitle } from '@framework/AppContext'
+import { EntityLine } from '../../../Framework/Signum.React/Scripts/Lines'
+import { EntityLink } from '../../../Framework/Signum.React/Scripts/Search'
 
 interface ImportAssetsPageProps extends RouteComponentProps<{}> {
 
@@ -40,7 +43,8 @@ export default function ImportAssetsPage(p: ImportAssetsPageProps) {
         let content = ((e.target as any).result as string).after("base64,");
         let fileName = f.name;
 
-        setFile({ content, fileName });
+        var file: API.FileUpload = { content, fileName };
+        setFile(file);
         setFileVer(fileVer + 1);
 
         API.importPreview(file!).then(model => { setModel(model); setSuccess(false); }).done();
@@ -51,7 +55,7 @@ export default function ImportAssetsPage(p: ImportAssetsPageProps) {
     return (
       <div>
         <div className="btn-toolbar">
-          <input key={fileVer} type="file" className="form-control" onChange={handleInputChange} style={{ display: "inline", float: "left", width: "inherit" }} />
+          <input key={fileVer} type="file" onChange={handleInputChange} style={{ display: "inline", float: "left", width: "inherit" }} />
         </div>
         <small>{UserAssetMessage.SelectTheXmlFileWithTheUserAssetsThatYouWantToImport.niceToString()}</small>
       </div>
@@ -84,6 +88,7 @@ export default function ImportAssetsPage(p: ImportAssetsPageProps) {
               <th> {UserAssetPreviewModel.nicePropertyName(a => a.lines![0].element.overrideEntity)} </th>
               <th> {UserAssetPreviewModel.nicePropertyName(a => a.lines![0].element.type)} </th>
               <th> {UserAssetPreviewModel.nicePropertyName(a => a.lines![0].element.text)} </th>
+              <th> {UserAssetPreviewModel.nicePropertyName(a => a.lines![0].element.customResolution)} </th>
             </tr>
           </thead>
 
@@ -103,12 +108,22 @@ export default function ImportAssetsPage(p: ImportAssetsPageProps) {
                   </td>
                   <td> {getTypeInfo(mle.element.type!.cleanName).niceName} </td>
                   <td> {mle.element.text}</td>
+                  <td> {mle.element.customResolution && <a href="#" onClick={e => {
+                    e.preventDefault();
+                    Navigator.view(mle.element.customResolution!)
+                      .then(cr => {
+                        if (cr != null) {
+                          mle.element.customResolution = cr;
+                          mle.element.modified = true;
+                        }
+                      }).done();
+                  }}>{mle.element.customResolution.toStr}</a>}</td>
                 </tr>
               )
             }
           </tbody>
         </table>
-        <button onClick={handleImport} className="btn btn-info"><FontAwesomeIcon icon="cloud-upload" /> Import</button>
+        <button onClick={handleImport} className="btn btn-info"><FontAwesomeIcon icon="cloud-upload-alt" /> Import</button>
       </div>
     );
   }
@@ -130,6 +145,3 @@ export default function ImportAssetsPage(p: ImportAssetsPageProps) {
     </div>
   );
 }
-
-
-

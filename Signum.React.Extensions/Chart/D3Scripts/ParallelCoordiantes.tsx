@@ -34,7 +34,7 @@ class ParallelCoordinatesImp extends React.Component<ChartScriptProps, ParallelC
 
     const { data, width, height, parameters, loading, onDrillDown, initialLoad } = this.props;
     
-    var yRule = new Rule({
+    var yRule = Rule.create({
       _1: 5,
       title: 15,
       _2: 5,
@@ -46,7 +46,7 @@ class ParallelCoordinatesImp extends React.Component<ChartScriptProps, ParallelC
       _5: 5,
     }, height);
 
-    var xRule = new Rule({
+    var xRule = Rule.create({
       _1: 20,
       content: '*',
       _2: 20,
@@ -73,7 +73,7 @@ class ParallelCoordinatesImp extends React.Component<ChartScriptProps, ParallelC
         var scaleType = parameters["Scale" + c.name.after("c")];
         var scale = scaleFor(c, values, 0, yRule.size('content'), scaleType);
         var scaleFunc = scaleFor(c, values, 0, 1, scaleType);
-        var colorScale = (r: ChartRow) => colorInterpolation(scaleFunc(c.getValue(r)));
+        var colorScale = (r: ChartRow) => colorInterpolation(scaleFunc(c.getValue(r))!);
 
         return {
           column: c,
@@ -89,7 +89,7 @@ class ParallelCoordinatesImp extends React.Component<ChartScriptProps, ParallelC
     var line = d3.line<{ col: ColumnWithScales, row: ChartRow }>()
       .defined(t => t.col.column.getValue(t.row) != undefined)
       .x(t => x(t.col.column.name)!)
-      .y(t => - t.col.scale(t.col.column.getValue(t.row)))
+      .y(t => - t.col.scale(t.col.column.getValue(t.row))!)
       .curve(ChartUtils.getCurveByName(parameters["Interpolate"])!);//"linear"
 
     var boxWidth = 10;
@@ -147,7 +147,7 @@ class ParallelCoordinatesImp extends React.Component<ChartScriptProps, ParallelC
             strokeWidth={1}
             stroke={selectedColumn.colorScale(r)}
             shapeRendering="initial"
-            onClick={e => onDrillDown(r)}
+            onClick={e => onDrillDown(r, e)}
             cursor="pointer"
             d={line(cords.map(c => ({ col: c, row: r })))!}>
             <title>

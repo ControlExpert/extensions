@@ -14,6 +14,7 @@ using Signum.Utilities;
 using Signum.Engine.Authorization;
 using Signum.Entities.Templating;
 using Signum.Engine.Basics;
+using Signum.Entities.Basics;
 
 namespace Signum.Engine.Mailing
 {
@@ -25,7 +26,7 @@ namespace Signum.Engine.Mailing
 
         [AutoExpressionField]
         public static IQueryable<EmailMessageEntity> RemainingMessages(this EmailPackageEntity p) => 
-            As.Expression(() => p.Messages().Where(a => a.State == EmailMessageState.RecruitedForSending));
+            As.Expression(() => p.Messages().Where(a => a.State == EmailMessageState.RecruitedForSending || a.State == EmailMessageState.Draft || a.State == EmailMessageState.ReadyToSend));
 
         [AutoExpressionField]
         public static IQueryable<EmailMessageEntity> ExceptionMessages(this EmailPackageEntity p) => 
@@ -57,6 +58,9 @@ namespace Signum.Engine.Mailing
                 {
                     Construct = (messages, args) =>
                     {
+                        if (!messages.Any())
+                            return null;
+
                         EmailPackageEntity emailPackage = new EmailPackageEntity()
                         {
                             Name = args.TryGetArgC<string>()
@@ -70,7 +74,7 @@ namespace Signum.Engine.Mailing
                                 From = m.From,
                                 Recipients = m.Recipients.ToMList(),
                                 Target = m.Target,
-                                Body = m.Body,
+                                Body = new BigStringEmbedded(m.Body.Text),
                                 IsBodyHtml = m.IsBodyHtml,
                                 Subject = m.Subject,
                                 Template = m.Template,
@@ -89,9 +93,9 @@ namespace Signum.Engine.Mailing
         public static ProcessEntity SendMultipleEmailsAsync(Lite<EmailTemplateEntity> template, List<Lite<Entity>> targets, ModelConverterSymbol? converter)
         {
             if (converter == null)
-                return ProcessLogic.Create(EmailMessageProcess.CreateEmailsSendAsync, new PackageEntity { OperationArgs = new object[] { template } }.CreateLines(targets));
+                return ProcessLogic.Create(EmailMessageProcess.CreateEmailsSendAsync, new PackageEntity().SetOperationArgs(new object[] { template }).CreateLines(targets));
 
-            return ProcessLogic.Create(EmailMessageProcess.CreateEmailsSendAsync, new PackageEntity { OperationArgs = new object[] { template, converter } }.CreateLines(targets));
+            return ProcessLogic.Create(EmailMessageProcess.CreateEmailsSendAsync, new PackageEntity().SetOperationArgs(new object[] { template, converter }).CreateLines(targets));
         }
     }
 
@@ -102,7 +106,7 @@ namespace Signum.Engine.Mailing
         {
             PackageEntity package = (PackageEntity)executingProcess.Data!;
 
-            var args = package.OperationArgs;
+            var args = package.GetOperationArgs();
             var template = args.GetArg<Lite<EmailTemplateEntity>>();
 
             executingProcess.ForEachLine(package.Lines().Where(a => a.FinishTime == null), line =>

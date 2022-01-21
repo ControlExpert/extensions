@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Signum.Utilities;
 using System.ComponentModel;
-using Newtonsoft.Json;
+using Signum.Entities.Authorization;
+using System.Text.Json.Serialization;
 
 namespace Signum.Entities.Omnibox
 {
@@ -58,10 +59,13 @@ namespace Signum.Entities.Omnibox
         }
 
         public static IEnumerable<OmniboxMatch> Matches<T>(Dictionary<string, T> values, Func<T, bool> filter, string pattern, bool isPascalCase)
+            where T : notnull
         {
             pattern = pattern.RemoveDiacritics();
 
+#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
             if (values.TryGetValue(pattern, out T val) && filter(val))
+#pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
             {
                 yield return new OmniboxMatch(val!, 0, pattern, new string('#', pattern.Length));
             }
@@ -152,7 +156,6 @@ namespace Signum.Entities.Omnibox
         }
     }
 
-
     public enum OmniboxMessage
     {
         [Description("no")]
@@ -190,5 +193,11 @@ namespace Signum.Entities.Omnibox
         ComplementWordsRegex,
         [Description("Search...")]
         Search,
+    }
+
+    [AutoInit]
+    public static class OmniboxPermission
+    {
+        public static PermissionSymbol ViewOmnibox;
     }
 }

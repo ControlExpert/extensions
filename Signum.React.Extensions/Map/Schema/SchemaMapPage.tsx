@@ -1,16 +1,17 @@
 import * as React from 'react'
 import * as History from 'history'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import * as QueryString from 'query-string'
 import { Dic } from '@framework/Globals'
-import * as Navigator from '@framework/Navigator'
+import * as AppContext from '@framework/AppContext'
 import { JavascriptMessage } from '@framework/Signum.Entities'
 import { MapMessage } from '../Signum.Entities.Map'
 import * as MapClient from '../MapClient'
 import { SchemaMapInfo, ITableInfo, MListRelationInfo, IRelationInfo, ClientColorProvider, SchemaMapD3 } from './SchemaMap'
 import { RouteComponentProps } from "react-router";
 import "./schemaMap.css"
-import { useExpand, useSize } from '../../../../Framework/Signum.React/Scripts/Hooks'
+import { useSize } from '@framework/Hooks'
+import { useExpand } from '@framework/AppContext'
+import { QueryString } from '@framework/QueryString'
 
 interface SchemaMapState {
   schemaMapInfo?: SchemaMapInfo;
@@ -108,7 +109,7 @@ export default function SchemaMapPage(p: RouteComponentProps<{}>) {
       ...tables, filter: filter, color: color
     };
 
-    const url = Navigator.history.createHref({ pathname: "~/map", search: QueryString.stringify(query) });
+    const url = AppContext.history.createHref({ pathname: "~/map", search: QueryString.stringify(query) });
 
     window.open(url);
   }
@@ -116,7 +117,7 @@ export default function SchemaMapPage(p: RouteComponentProps<{}>) {
   function renderFilter() {
 
     return (
-      <div className="form-inline container" style={{ marginTop: "10px" }}>
+      <div className="form-inline container" style={{ margin: "1rem 0" }}>
         <div className="form-group form-group-sm">
           <label htmlFor="filter"> {MapMessage.Filter.niceToString()}</label>&nbsp;
                     <input type="text" className="form-control form-control-sm" id="filter" placeholder="type or namespace" value={filter} onChange={handleSetFilter} />
@@ -141,22 +142,27 @@ export default function SchemaMapPage(p: RouteComponentProps<{}>) {
       </div>
     );
   }
-  if (Navigator.Expander.onGetExpanded && !Navigator.Expander.onGetExpanded())
+  if (AppContext.Expander.onGetExpanded && !AppContext.Expander.onGetExpanded())
     return null;
 
   return (
-    <div ref={setContainer}>
+    <div style={{display: "flex", flexDirection: "column", flexGrow: 1}}>
       {renderFilter()}
-      {!(schemaInfo && size && schemaInfo && providers) ?
+      {!(schemaInfo && schemaInfo && providers) ?
         <span>{JavascriptMessage.loading.niceToString()}</span> :
-        <SchemaMapRenderer
-          schemaMapInfo={schemaInfo}
-          tables={tables!}
-          filter={filter}
-          color={color}
-          height={size.height!}
-          width={size.width!}
-          providers={providers} />}
+        <div ref={setContainer} style={{ display: "flex", flexGrow: 1 }}>
+          {size?.height && size?.width &&
+            <SchemaMapRenderer
+              schemaMapInfo={schemaInfo}
+              tables={tables!}
+              filter={filter}
+              color={color}
+              height={size.height}
+              width={size.width}
+              providers={providers} 
+            />
+          }
+        </div>}
     </div>
   );
 }
@@ -257,6 +263,10 @@ export function SchemaMapRenderer(p: SchemaMapRendererProps) {
 
           <marker id="mlist_arrow" viewBox="-10 -5 20 10" refX="10" refY="0" markerWidth="10" markerHeight="20" orient="auto">
             <path fill="gray" d="M0,0L0,-5L10,0L0,5L0,0L-10,5L-10,-5L0,0" />
+          </marker>
+
+          <marker id="virtual_mlist_arrow" viewBox="-10 -5 20 10" refX="-10" refY="0" markerWidth="10" markerHeight="20" orient="auto">
+            <path fill="gray" d="M0,0 L0,-8 L-10,0 L0,8 L0,0 L10,8 L10,-8 L0,0" />
           </marker>
           {
             React.Children.map(Dic.getValues(p.providers).map(a => a.defs).filter(defs => !!defs).flatMap(defs => defs!),

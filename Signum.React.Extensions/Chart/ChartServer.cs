@@ -12,6 +12,9 @@ using Signum.React.Facades;
 using Signum.Engine.Chart;
 using Signum.Engine.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Signum.Entities.Authorization;
+using System.Text.Json;
+using Signum.Engine.Json;
 
 namespace Signum.React.Chart
 {
@@ -25,10 +28,10 @@ namespace Signum.React.Chart
 
             CustomizeChartRequest();
 
-            EntityJsonConverter.AfterDeserilization.Register((ChartRequestModel cr) =>
+            SignumServer.WebEntityJsonConverterFactory.AfterDeserilization.Register((ChartRequestModel cr) =>
             {
                 if (cr.ChartScript != null)
-                    cr.GetChartScript().SynchronizeColumns(cr);
+                    cr.GetChartScript().SynchronizeColumns(cr, null);
 
                 if (cr.QueryName != null)
                 {
@@ -40,10 +43,10 @@ namespace Signum.React.Chart
                 }
             });
 
-            EntityJsonConverter.AfterDeserilization.Register((UserChartEntity uc) =>
+            SignumServer.WebEntityJsonConverterFactory.AfterDeserilization.Register((UserChartEntity uc) =>
             {
                 if (uc.ChartScript != null)
-                    uc.GetChartScript().SynchronizeColumns(uc);
+                    uc.GetChartScript().SynchronizeColumns(uc, null);
 
                 if (uc.Query != null)
                 {
@@ -58,43 +61,42 @@ namespace Signum.React.Chart
 
             EntityPackTS.AddExtension += ep =>
             {
-                if (ep.entity.IsNew || !ChartPermission.ViewCharting.IsAuthorized())
+                if (ep.entity.IsNew || !ChartPermission.ViewCharting.IsAuthorized() || TypeAuthLogic.GetAllowed(typeof(UserChartEntity)).MaxDB() == TypeAllowedBasic.None)
                     return;
 
                 var userCharts = UserChartLogic.GetUserChartsEntity(ep.entity.GetType());
                 if (userCharts.Any())
                     ep.extension.Add("userCharts", userCharts);
             };
-
         }
 
         private static void CustomizeChartRequest()
         {
-            var converters = PropertyConverter.GetPropertyConverters(typeof(ChartRequestModel));
+            var converters = SignumServer.WebEntityJsonConverterFactory.GetPropertyConverters(typeof(ChartRequestModel));
             converters.Remove("queryName");
 
             converters.Add("queryKey", new PropertyConverter()
             {
                 AvoidValidate = true,
-                CustomReadJsonProperty = ctx =>
+                CustomReadJsonProperty = (ref Utf8JsonReader reader, ReadJsonPropertyContext ctx) =>
                 {
-                    ((ChartRequestModel)ctx.Entity).QueryName = QueryLogic.ToQueryName((string)ctx.JsonReader.Value!);
+                    ((ChartRequestModel)ctx.Entity).QueryName = QueryLogic.ToQueryName(reader.GetString()!);
                 },
-                CustomWriteJsonProperty = ctx =>
+                CustomWriteJsonProperty = (Utf8JsonWriter writer, WriteJsonPropertyContext ctx) =>
                 {
                     var cr = (ChartRequestModel)ctx.Entity;
 
-                    ctx.JsonWriter.WritePropertyName(ctx.LowerCaseName);
-                    ctx.JsonWriter.WriteValue(QueryLogic.GetQueryEntity(cr.QueryName).Key);
+                    writer.WritePropertyName(ctx.LowerCaseName);
+                    writer.WriteStringValue(QueryLogic.GetQueryEntity(cr.QueryName).Key);
                 }
             });
 
             converters.Add("filters", new PropertyConverter()
             {
                 AvoidValidate = true,
-                CustomReadJsonProperty = ctx =>
+                CustomReadJsonProperty = (ref Utf8JsonReader reader, ReadJsonPropertyContext ctx) =>
                 {
-                    var list = (List<FilterTS>)ctx.JsonSerializer.Deserialize(ctx.JsonReader, typeof(List<FilterTS>))!;
+                    var list = JsonSerializer.Deserialize<List<FilterTS>>(ref reader, ctx.JsonSerializerOptions)!;
 
                     var cr = (ChartRequestModel)ctx.Entity;
 
@@ -102,12 +104,12 @@ namespace Signum.React.Chart
 
                     cr.Filters = list.Select(l => l.ToFilter(qd, canAggregate: true)).ToList();
                 },
-                CustomWriteJsonProperty = ctx =>
+                CustomWriteJsonProperty = (Utf8JsonWriter writer, WriteJsonPropertyContext ctx) =>
                 {
                     var cr = (ChartRequestModel)ctx.Entity;
 
-                    ctx.JsonWriter.WritePropertyName(ctx.LowerCaseName);
-                    ctx.JsonSerializer.Serialize(ctx.JsonWriter, cr.Filters.Select(f => FilterTS.FromFilter(f)).ToList());
+                    writer.WritePropertyName(ctx.LowerCaseName);
+                    JsonSerializer.Serialize(writer, cr.Filters.Select(f => FilterTS.FromFilter(f)).ToList(), ctx.JsonSerializerOptions);
                 }
             });
         }

@@ -20,11 +20,16 @@ using Signum.Engine.Authorization;
 using Signum.Entities.Authorization;
 using Signum.Entities.Mailing;
 using Signum.Engine.Mailing;
+using Signum.Entities.Workflow;
+using Signum.Engine.Workflow;
+using Signum.Engine.Operations.Internal;
 
 namespace Signum.Engine.UserAssets
 {
     public static class UserAssetsExporter
     {
+        public static Func<XDocument, XDocument>? PreExport = null;
+
         class ToXmlContext : IToXmlContext
         {
             public Dictionary<Guid, XElement> elements = new Dictionary<Guid, XElement>();
@@ -45,6 +50,11 @@ namespace Signum.Engine.UserAssets
                 return TypeLogic.GetCleanName(TypeLogic.EntityToType.GetOrThrow(type.RetrieveAndRemember()));
             }
             
+            public string TypeToName(TypeEntity type)
+            {
+                return TypeLogic.GetCleanName(TypeLogic.EntityToType.GetOrThrow(type));
+            }
+
             public string QueryToName(Lite<QueryEntity> query)
             {
                 return query.RetrieveAndRemember().Key;
@@ -53,6 +63,12 @@ namespace Signum.Engine.UserAssets
             public string PermissionToName(Lite<PermissionSymbol> symbol)
             {
                 return symbol.RetrieveAndRemember().Key;
+            }
+
+            public XElement GetFullWorkflowElement(WorkflowEntity workflow)
+            {
+                var wie = new WorkflowImportExport(workflow);
+                return wie.ToXml(this);
             }
         }
 
@@ -68,6 +84,10 @@ namespace Signum.Engine.UserAssets
                 new XElement("Entities",
                     ctx.elements.Values));
 
+
+           if(PreExport!=null)
+                doc=PreExport(doc);
+
             return new MemoryStream().Using(s => { doc.Save(s); return s.ToArray(); });
         }
     }
@@ -75,18 +95,28 @@ namespace Signum.Engine.UserAssets
     public static class UserAssetsImporter
     {
         public static Dictionary<string, Type> UserAssetNames = new Dictionary<string, Type>();
+        public static Polymorphic<Action<Entity>> SaveEntity = new Polymorphic<Action<Entity>>();
         public static Dictionary<string, Type> PartNames = new Dictionary<string, Type>();
+        public static Func<XDocument, XDocument>? PreImport = null;
 
         class PreviewContext : IFromXmlContext
         {
             public Dictionary<Guid, IUserAssetEntity> entities = new Dictionary<Guid, IUserAssetEntity>();
             public Dictionary<Guid, XElement> elements;
+
+            public Dictionary<Guid, ModelEntity?> customResolutionModel = new Dictionary<Guid, ModelEntity?>();
+
             public Dictionary<Guid, UserAssetPreviewLineEmbedded> previews = new Dictionary<Guid, UserAssetPreviewLineEmbedded>();
+
+            public bool IsPreview => true;
 
             public PreviewContext(XDocument doc)
             {
-                elements = doc.Element("Entities").Elements().ToDictionary(a => Guid.Parse(a.Attribute("Guid").Value));
+                elements = doc.Element("Entities")!.Elements().ToDictionary(a => Guid.Parse(a.Attribute("Guid")!.Value));
             }
+
+          
+
 
             public QueryEntity GetQuery(string queryKey)
             {
@@ -123,8 +153,10 @@ namespace Signum.Engine.UserAssets
                         Type = entity.GetType().ToTypeEntity(),
                         Guid = guid,
                         Action = entity.IsNew ? EntityAction.New :
+                                 customResolutionModel.ContainsKey(entity.Guid) ? EntityAction.Different :
                                  GraphExplorer.FromRoot((Entity)entity).Any(a => a.Modified != ModifiedState.Clean) ? EntityAction.Different :
                                  EntityAction.Identical,
+                        CustomResolution = customResolutionModel.TryGetCN(entity.Guid),
                     });
 
                     return entity;
@@ -147,8 +179,12 @@ namespace Signum.Engine.UserAssets
                 return part;
             }
 
+            public TypeEntity GetType(string cleanName)
+            {
+                return TypeLogic.GetType(cleanName).ToTypeEntity();
+            }
 
-            public Lite<TypeEntity> GetType(string cleanName)
+            public Lite<TypeEntity> GetTypeLite(string cleanName)
             {
                 return TypeLogic.GetType(cleanName).ToTypeEntity().ToLite();
             }
@@ -177,11 +213,33 @@ namespace Signum.Engine.UserAssets
             {
                 return CultureInfoLogic.GetCultureInfoEntity(cultureName);
             }
+
+            public void SetFullWorkflowElement(WorkflowEntity workflow, XElement element)
+            {
+                var wie = new WorkflowImportExport(workflow);
+                wie.FromXml(element, this);
+
+                if (wie.HasChanges)
+                {
+                    if (wie.ReplacementModel != null)
+                    {
+                        wie.ReplacementModel.NewTasks = wie.Activities.Select(a => new NewTasksEmbedded
+                        {
+                            BpmnId = a.BpmnElementId,
+                            Name = a.GetName()!,
+                            SubWorkflow = (a as WorkflowActivityEntity)?.SubWorkflow?.Workflow.ToLite(),
+                        }).ToMList();
+                    }
+                    this.customResolutionModel.Add(Guid.Parse(element.Attribute("Guid")!.Value), wie.ReplacementModel);
+                }
+            }
         }
 
         public static UserAssetPreviewModel Preview(byte[] doc)
         {
             XDocument document = new MemoryStream(doc).Using(XDocument.Load);
+            if (PreImport != null)
+                document = PreImport(document);
 
             PreviewContext ctx = new PreviewContext(document);
 
@@ -195,14 +253,24 @@ namespace Signum.Engine.UserAssets
         {
             Dictionary<Guid, bool> overrideEntity;
             Dictionary<Guid, IUserAssetEntity> entities = new Dictionary<Guid, IUserAssetEntity>();
+            Dictionary<Guid, ModelEntity?> customResolutionModel = new Dictionary<Guid, ModelEntity?>();
             public List<IPartEntity> toRemove = new List<IPartEntity>();
             public Dictionary<Guid, XElement> elements;
 
-            public ImporterContext(XDocument doc, Dictionary<Guid, bool> overrideEntity)
+            public bool IsPreview => false;
+
+            public ImporterContext(XDocument doc, Dictionary<Guid, bool> overrideEntity, Dictionary<Guid, ModelEntity?> customResolution)
             {
                 this.overrideEntity = overrideEntity;
-                elements = doc.Element("Entities").Elements().ToDictionary(a => Guid.Parse(a.Attribute("Guid").Value));
+                this.customResolutionModel = customResolution;
+                elements = doc.Element("Entities")!.Elements().ToDictionary(a => Guid.Parse(a.Attribute("Guid")!.Value));
             }
+
+            public TypeEntity GetType(string cleanName)
+            {
+                return TypeLogic.GetType(cleanName).ToTypeEntity();
+            }
+
 
             QueryEntity IFromXmlContext.GetQuery(string queryKey)
             {
@@ -234,8 +302,8 @@ namespace Signum.Engine.UserAssets
                     if (entity.IsNew || overrideEntity.ContainsKey(guid))
                     {
                         entity.FromXml(element, this);
-                        using (OperationLogic.AllowSave(entity.GetType()))
-                            entity.Save();
+
+                        SaveEntity.Invoke((Entity)entity);
                     }
 
                     return entity;
@@ -266,7 +334,7 @@ namespace Signum.Engine.UserAssets
                 return part;
             }
 
-            public Lite<TypeEntity> GetType(string cleanName)
+            public Lite<TypeEntity> GetTypeLite(string cleanName)
             {
                 return TypeLogic.GetType(cleanName).ToTypeEntity().ToLite();
             }
@@ -289,6 +357,16 @@ namespace Signum.Engine.UserAssets
             public CultureInfoEntity GetCultureInfoEntity(string cultureName)
             {
                 return CultureInfoLogic.GetCultureInfoEntity(cultureName);
+            }
+
+            public void SetFullWorkflowElement(WorkflowEntity workflow, XElement element)
+            {
+                var model = (WorkflowReplacementModel?)this.customResolutionModel.TryGetCN(Guid.Parse(element.Attribute("Guid")!.Value));
+                var wie = new WorkflowImportExport(workflow)
+                {
+                    ReplacementModel = model
+                };
+                wie.FromXml(element, this);
             }
         }
 
@@ -316,16 +394,26 @@ namespace Signum.Engine.UserAssets
             }
         }
 
+        public static void ImportAll(byte[] document)
+        {
+            Import(document, Preview(document));
+        }
+
         public static void Import(byte[] document, UserAssetPreviewModel preview)
         {
             using (Transaction tr = new Transaction())
             {
                 var doc = new MemoryStream(document).Using(XDocument.Load);
+                if (PreImport != null)
+                    doc = PreImport(doc);
 
                 ImporterContext importer = new ImporterContext(doc,
                     preview.Lines
                     .Where(a => a.Action == EntityAction.Different)
-                    .ToDictionary(a => a.Guid, a => a.OverrideEntity));
+                    .ToDictionary(a => a.Guid, a => a.OverrideEntity),
+                    preview.Lines
+                    .Where(a => a.Action == EntityAction.Different)
+                    .ToDictionary(a => a.Guid, a => a.CustomResolution));
 
                 foreach (var item in importer.elements)
                     importer.GetEntity(item.Key);
@@ -349,10 +437,15 @@ namespace Signum.Engine.UserAssets
             return new T { Guid = guid };
         }
 
-        public static void RegisterName<T>(string userAssetName) where T : IUserAssetEntity
+
+        public static void Register<T>(string userAssetName, ExecuteSymbol<T> saveOperation) where T : Entity, IUserAssetEntity =>
+            Register<T>(userAssetName, e => e.Execute(saveOperation));
+
+        public static void Register<T>(string userAssetName, Action<T> saveEntity) where T : Entity, IUserAssetEntity
         {
             PermissionAuthLogic.RegisterPermissions(UserAssetPermission.UserAssetsToXML);
             UserAssetNames.Add(userAssetName, typeof(T));
+            UserAssetsImporter.SaveEntity.Register(saveEntity);
         }
     }
 }

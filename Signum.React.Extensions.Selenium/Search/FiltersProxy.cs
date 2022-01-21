@@ -27,7 +27,7 @@ namespace Signum.React.Selenium
         {
             var oldFilters = this.Filters();
             action();
-            var newFilter = this.Element.GetDriver().Wait(() => this.Filters().Skip(oldFilters.Count()).SingleOrDefault(), () => "new filter to appear");
+            var newFilter = this.Element.GetDriver().Wait(() => this.Filters().Skip(oldFilters.Count()).SingleOrDefault(), () => "new filter to appear")!;
 
             return newFilter;
         }
@@ -52,7 +52,7 @@ namespace Signum.React.Selenium
             return (FilterGroupProxy)GetNewFilter(() => this.AddGroupButton.Find().Click());
         }
 
-        public void AddFilter(string token, FilterOperation operation, object value)
+        public void AddFilter(string token, FilterOperation operation, object? value)
         {
             var fo = this.AddFilter();
             fo.QueryToken.SelectToken(token);

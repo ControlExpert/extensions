@@ -30,11 +30,12 @@ namespace Signum.React.Selenium
             return new SearchModalProxy(popup);
         }
 
-        public void ExecuteClick(IOperationSymbolContainer symbolContainer, bool consumeConfirmation = false, bool shouldDisapear = false)
+        public void ExecuteClick<T>(ExecuteSymbol<T> executeSymbol, bool consumeConfirmation = false, bool shouldDisapear = false)
+            where T : Entity
         {
             var lites = ResultTable.SelectedEntities();
 
-            Operation(symbolContainer).WaitVisible().Click();
+            Operation(executeSymbol).WaitVisible().Click();
             if (consumeConfirmation)
                 this.ResultTable.Selenium.ConsumeAlert();
 
@@ -42,6 +43,26 @@ namespace Signum.React.Selenium
                 ResultTable.WaitNoVisible(lites);
             else
                 ResultTable.WaitSuccess(lites);
+        }
+
+        public FrameModalProxy<T> ConstructFrom<F, T>(ConstructSymbol<T>.From<F> constructSymbol, bool shouldDisapear = false)
+            where F : Entity
+            where T : Entity
+        {
+            var lites = ResultTable.SelectedEntities();
+
+            var modal = Operation(constructSymbol).WaitVisible().CaptureOnClick();
+
+            var result = new FrameModalProxy<T>(modal);
+            result.Disposing += okPressed =>
+            {
+                if (shouldDisapear)
+                    ResultTable.WaitNoVisible(lites);
+                else
+                    ResultTable.WaitSuccess(lites);
+            };
+
+            return result;
         }
 
         public void DeleteClick(IOperationSymbolContainer symbolContainer, bool consumeConfirmation = true, bool shouldDisapear = true)
@@ -101,11 +122,10 @@ namespace Signum.React.Selenium
             return Operation(symbolContainer).WaitVisible().GetAttribute("disabled").HasText();
         }
 
-        public FrameModalProxy<T> OperationClickPopup<T>(IOperationSymbolContainer symbolContainer)
-            where T : Entity
+        public IWebElement OperationClickCapture(IOperationSymbolContainer symbolContainer)
         {
             var popup = Operation(symbolContainer).WaitVisible().CaptureOnClick();
-            return new FrameModalProxy<T>(popup);
+            return popup;
         }
 
         private FramePageProxy<T> MenuClickNormalPage<T>(IOperationSymbolContainer contanier) where T : Entity

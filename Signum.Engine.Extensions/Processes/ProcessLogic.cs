@@ -30,7 +30,7 @@ namespace Signum.Engine.Processes
             As.Expression(() => Database.Query<ProcessEntity>().Where(a => a.Algorithm == p));
 
         [AutoExpressionField]
-        public static ProcessEntity LastProcess(this ProcessAlgorithmSymbol p) => 
+        public static ProcessEntity? LastProcess(this ProcessAlgorithmSymbol p) => 
             As.Expression(() => p.Processes().OrderByDescending(a => a.ExecutionStart).FirstOrDefault());
 
         [AutoExpressionField]
@@ -42,15 +42,15 @@ namespace Signum.Engine.Processes
             As.Expression(() => Database.Query<ProcessExceptionLineEntity>().Where(a => a.Line.Is(pl)));
 
         [AutoExpressionField]
-        public static ExceptionEntity Exception(this IProcessLineDataEntity pl, ProcessEntity p) =>
-            As.Expression(() => p.ExceptionLines().SingleOrDefault(el => el.Line.Is(pl)).Exception.Entity);
+        public static ExceptionEntity? Exception(this IProcessLineDataEntity pl, ProcessEntity p) =>
+            As.Expression(() => p.ExceptionLines().SingleOrDefault(el => el.Line.Is(pl))!.Exception.Entity);
 
         [AutoExpressionField]
         public static IQueryable<ProcessEntity> Processes(this IProcessDataEntity e) =>
             As.Expression(() => Database.Query<ProcessEntity>().Where(a => a.Data == e));
 
         [AutoExpressionField]
-        public static ProcessEntity LastProcess(this IProcessDataEntity e) => 
+        public static ProcessEntity? LastProcess(this IProcessDataEntity e) => 
             As.Expression(() => e.Processes().OrderByDescending(a => a.ExecutionStart).FirstOrDefault());
 
         static Dictionary<ProcessAlgorithmSymbol, IProcessAlgorithm> registeredProcesses = new Dictionary<ProcessAlgorithmSymbol, IProcessAlgorithm>();
@@ -129,26 +129,30 @@ namespace Signum.Engine.Processes
         {
             void Remove(ProcessState processState, DateTime dateLimit, bool withExceptions)
             {
-                var query = Database.Query<ProcessEntity>().Where(p => p.State == processState && p.CreationDate < dateLimit && (!withExceptions || p.Exception != null));
+                var query = Database.Query<ProcessEntity>().Where(p => p.State == processState && p.CreationDate < dateLimit);
+
+                if (withExceptions)
+                    query = query.Where(p => p.Exception != null);
+
                 query.SelectMany(a => a.ExceptionLines()).UnsafeDeleteChunksLog(parameters, sb, token);
-                query.UnsafeDeleteChunksLog(parameters, sb, token);
+                query.Where(a => !a.ExceptionLines().Any()).UnsafeDeleteChunksLog(parameters, sb, token);
             }
 
             var dateLimit = parameters.GetDateLimitDelete(typeof(ProcessEntity).ToTypeEntity());
             if (dateLimit != null)
             {
-                Remove(ProcessState.Canceled, dateLimit.Value, false);
-                Remove(ProcessState.Finished, dateLimit.Value, false);
-                Remove(ProcessState.Error, dateLimit.Value, false);
+                Remove(ProcessState.Canceled, dateLimit.Value, withExceptions: false);
+                Remove(ProcessState.Finished, dateLimit.Value, withExceptions: false);
+                Remove(ProcessState.Error, dateLimit.Value, withExceptions: false);
             }
 
             dateLimit = parameters.GetDateLimitDeleteWithExceptions(typeof(ProcessEntity).ToTypeEntity());
-            if (dateLimit == null)
-                return;
-
-            Remove(ProcessState.Canceled, dateLimit.Value, true);
-            Remove(ProcessState.Finished, dateLimit.Value, true);
-            Remove(ProcessState.Error, dateLimit.Value, true);
+            if (dateLimit != null)
+            {
+                Remove(ProcessState.Canceled, dateLimit.Value, withExceptions: true);
+                Remove(ProcessState.Finished, dateLimit.Value, withExceptions: true);
+                Remove(ProcessState.Error, dateLimit.Value, withExceptions: true);
+            }
         }
 
         public static IDisposable? OnApplySession(ProcessEntity process)
@@ -428,15 +432,15 @@ namespace Signum.Engine.Processes
 
                 if (!oldExists)
                 {
-                    createNew?.Invoke(key, newVal);
+                    createNew?.Invoke(key, newVal!);
                 }
                 else if (!newExists)
                 {
-                    removeOld?.Invoke(key, oldVal);
+                    removeOld?.Invoke(key, oldVal!);
                 }
                 else
                 {
-                    merge?.Invoke(key, newVal, oldVal);
+                    merge?.Invoke(key, newVal!, oldVal!);
                 }
             }
         }

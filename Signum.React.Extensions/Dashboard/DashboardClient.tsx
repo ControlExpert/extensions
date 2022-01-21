@@ -4,19 +4,22 @@ import { ajaxGet } from '@framework/Services';
 import * as Constructor from '@framework/Constructor';
 import { EntitySettings } from '@framework/Navigator'
 import * as Navigator from '@framework/Navigator'
+import * as AppContext from '@framework/AppContext'
 import * as Finder from '@framework/Finder'
-import { Entity, Lite, liteKey, toLite, EntityPack } from '@framework/Signum.Entities'
+import { Entity, Lite, liteKey, toLite, EntityPack, getToString, SelectorMessage } from '@framework/Signum.Entities'
 import * as QuickLinks from '@framework/QuickLinks'
 import { Type } from '@framework/Reflection'
-import { onEmbeddedWidgets } from '@framework/Frames/Widgets'
+import { onEmbeddedWidgets, EmbeddedWidget } from '@framework/Frames/Widgets'
 import * as AuthClient from '../Authorization/AuthClient'
 import * as ChartClient from '../Chart/ChartClient'
 import * as UserChartClient from '../Chart/UserChart/UserChartClient'
 import * as UserQueryClient from '../UserQueries/UserQueryClient'
-import { DashboardPermission, DashboardEntity, ValueUserQueryListPartEntity, LinkListPartEntity, UserChartPartEntity, UserQueryPartEntity, IPartEntity, DashboardMessage, PanelPartEmbedded } from './Signum.Entities.Dashboard'
+import { DashboardPermission, DashboardEntity, ValueUserQueryListPartEntity, LinkListPartEntity, UserChartPartEntity, UserQueryPartEntity, IPartEntity, DashboardMessage, PanelPartEmbedded, UserTreePartEntity, CombinedUserChartPartEntity } from './Signum.Entities.Dashboard'
 import * as UserAssetClient from '../UserAssets/UserAssetClient'
 import { ImportRoute } from "@framework/AsyncImport";
-import { useAPI } from '../../../Framework/Signum.React/Scripts/Hooks';
+import { useAPI } from '@framework/Hooks';
+import { ChartPermission } from '../Chart/Signum.Entities.Chart';
+import SelectorModal from '../../../Framework/Signum.React/Scripts/SelectorModal';
 
 
 export interface PanelPartContentProps<T extends IPartEntity> {
@@ -46,16 +49,20 @@ export function start(options: { routes: JSX.Element[] }) {
   UserAssetClient.start({ routes: options.routes });
   UserAssetClient.registerExportAssertLink(DashboardEntity);
 
-  Constructor.registerConstructor(DashboardEntity, () => DashboardEntity.New({ owner: Navigator.currentUser && toLite(Navigator.currentUser) }));
+  Constructor.registerConstructor(DashboardEntity, () => DashboardEntity.New({ owner: AppContext.currentUser && toLite(AppContext.currentUser) }));
 
   Navigator.addSettings(new EntitySettings(DashboardEntity, e => import('./Admin/Dashboard')));
 
   Navigator.addSettings(new EntitySettings(ValueUserQueryListPartEntity, e => import('./Admin/ValueUserQueryListPart')));
   Navigator.addSettings(new EntitySettings(LinkListPartEntity, e => import('./Admin/LinkListPart')));
   Navigator.addSettings(new EntitySettings(UserChartPartEntity, e => import('./Admin/UserChartPart')));
+  Navigator.addSettings(new EntitySettings(CombinedUserChartPartEntity, e => import('./Admin/CombinedUserChartPart')));
   Navigator.addSettings(new EntitySettings(UserQueryPartEntity, e => import('./Admin/UserQueryPart')));
 
-  Finder.addSettings({ queryName: DashboardEntity, defaultOrderColumn: DashboardEntity.token(d => d.dashboardPriority), defaultOrderType: "Descending" });
+  Finder.addSettings({
+    queryName: DashboardEntity,
+    defaultOrders: [{ token: DashboardEntity.token(d => d.dashboardPriority), orderType: "Descending" }]
+  });
 
   options.routes.push(<ImportRoute path="~/dashboard/:dashboardId" onImportModule={() => import("./View/DashboardPage")} />);
 
@@ -73,16 +80,50 @@ export function start(options: { routes: JSX.Element[] }) {
     handleEditClick: !Navigator.isViewable(UserChartPartEntity) || Navigator.isReadOnly(UserChartPartEntity) ? undefined :
       (p, e, ev) => {
         ev.preventDefault();
-        Navigator.pushOrOpenInTab(Navigator.navigateRoute(p.userChart!), ev);
+        AppContext.pushOrOpenInTab(Navigator.navigateRoute(p.userChart!), ev);
       },
-    handleTitleClick: !Navigator.isViewable(UserChartPartEntity) || Navigator.isReadOnly(UserChartPartEntity) ? undefined :
+    handleTitleClick: !AuthClient.isPermissionAuthorized(ChartPermission.ViewCharting) ? undefined :
       (p, e, ev) => {
         ev.preventDefault();
         ev.persist();
         UserChartClient.Converter.toChartRequest(p.userChart!, e)
           .then(cr => ChartClient.Encoder.chartPathPromise(cr, toLite(p.userChart!)))
-          .then(path => Navigator.pushOrOpenInTab(path, ev))
+          .then(path => AppContext.pushOrOpenInTab(path, ev))
           .done();
+      },
+  });
+  registerRenderer(CombinedUserChartPartEntity, {
+    component: () => import('./View/CombinedUserChartPart').then(a => a.default),
+    defaultIcon: () => ({ icon: "chart-bar", iconColor: "violet" }),
+    handleEditClick: !Navigator.isViewable(UserChartPartEntity) || Navigator.isReadOnly(UserChartPartEntity) ? undefined :
+      (p, e, ev) => {
+        ev.preventDefault();
+        SelectorModal.chooseElement(p.userCharts.map(a => a.element), {
+          buttonDisplay: a => a.displayName ?? "",
+          buttonName: a => a.id!.toString(),
+          title: SelectorMessage.SelectAnElement.niceToString(),
+          message: SelectorMessage.PleaseSelectAnElement.niceToString()
+        })
+          .then(lite => lite && AppContext.pushOrOpenInTab(Navigator.navigateRoute(lite!), ev))
+          .done();
+      },
+    handleTitleClick: !AuthClient.isPermissionAuthorized(ChartPermission.ViewCharting) ? undefined :
+      (p, e, ev) => {
+        ev.preventDefault();
+        ev.persist();
+        SelectorModal.chooseElement(p.userCharts.map(a => a.element), {
+          buttonDisplay: a => a.displayName ?? "",
+          buttonName: a => a.id!.toString(),
+          title: SelectorMessage.SelectAnElement.niceToString(),
+          message: SelectorMessage.PleaseSelectAnElement.niceToString()
+        }).then(uc => {
+          if (uc) {
+            UserChartClient.Converter.toChartRequest(uc, e)
+              .then(cr => ChartClient.Encoder.chartPathPromise(cr, toLite(uc!)))
+              .then(path => AppContext.pushOrOpenInTab(path, ev))
+              .done();
+          }
+        }).done();
       },
   });
 
@@ -93,23 +134,51 @@ export function start(options: { routes: JSX.Element[] }) {
     handleEditClick: !Navigator.isViewable(UserQueryPartEntity) || Navigator.isReadOnly(UserQueryPartEntity) ? undefined :
       (p, e, ev) => {
         ev.preventDefault();
-        Navigator.pushOrOpenInTab(Navigator.navigateRoute(p.userQuery!), ev);
+        AppContext.pushOrOpenInTab(Navigator.navigateRoute(p.userQuery!), ev);
       },
-    handleTitleClick: !Navigator.isViewable(UserQueryPartEntity) || Navigator.isReadOnly(UserQueryPartEntity) ? undefined :
+    handleTitleClick:
       (p, e, ev) => {
         ev.preventDefault();
         ev.persist();
         UserQueryClient.Converter.toFindOptions(p.userQuery!, e)
-          .then(cr => Navigator.pushOrOpenInTab(Finder.findOptionsPath(cr, { userQuery: liteKey(toLite(p.userQuery!)) }), ev))
+          .then(cr => AppContext.pushOrOpenInTab(Finder.findOptionsPath(cr, { userQuery: liteKey(toLite(p.userQuery!)) }), ev))
           .done()
       }
   });
 
-  onEmbeddedWidgets.push(wc => wc.frame.pack.embeddedDashboard &&
-    {
-      position: wc.frame.pack.embeddedDashboard.embeddedInEntity as "Top" | "Bottom",
-      embeddedWidget: <DashboardWidget dashboard={wc.frame.pack.embeddedDashboard} pack={wc.frame.pack as EntityPack<Entity>} />
+
+  registerRenderer(UserTreePartEntity, {
+    component: () => import('./View/UserTreePart').then((a: any) => a.default),
+    defaultIcon: () => ({ icon: ["far", "list-alt"], iconColor: "dodgerblue" }),
+    withPanel: p => true,
+    handleEditClick: !Navigator.isViewable(UserTreePartEntity) || Navigator.isReadOnly(UserTreePartEntity) ? undefined :
+      (p, e, ev) => {
+        ev.preventDefault();
+        AppContext.pushOrOpenInTab(Navigator.navigateRoute(p.userQuery!), ev);
+      },
+    handleTitleClick:
+      (p, e, ev) => {
+        ev.preventDefault();
+        ev.persist();
+        UserQueryClient.Converter.toFindOptions(p.userQuery!, e)
+          .then(cr => AppContext.pushOrOpenInTab(Finder.findOptionsPath(cr, { userQuery: liteKey(toLite(p.userQuery!)) }), ev))
+          .done()
+      }
+  });
+
+  onEmbeddedWidgets.push(wc => {
+    if (!wc.frame.pack.embeddedDashboards)
+      return undefined;
+
+    return wc.frame.pack.embeddedDashboards.map(d => {
+      return {
+        position: d.embeddedInEntity as "Top" | "Tab" | "Bottom",
+        embeddedWidget: <DashboardWidget dashboard={d} pack={wc.frame.pack as EntityPack<Entity>} />,
+        eventKey: liteKey(toLite(d)),
+        title: d.displayName,
+      } as EmbeddedWidget;
     });
+  });
 
   QuickLinks.registerGlobalQuickLink(ctx => {
     if (!AuthClient.isPermissionAuthorized(DashboardPermission.ViewDashboard))
@@ -120,16 +189,16 @@ export function start(options: { routes: JSX.Element[] }) {
       API.forEntityType(ctx.lite.EntityType);
 
     return promise.then(das =>
-      das.map(d => new QuickLinks.QuickLinkAction(liteKey(d), d.toStr ?? "", e => {
-        Navigator.pushOrOpenInTab(dashboardUrl(d, ctx.lite), e)
+      das.map(d => new QuickLinks.QuickLinkAction(liteKey(d), () => d.toStr ?? "", e => {
+        AppContext.pushOrOpenInTab(dashboardUrl(d, ctx.lite), e)
       }, { icon: "tachometer-alt", iconColor: "darkslateblue" })));
   });
 
-  QuickLinks.registerQuickLink(DashboardEntity, ctx => new QuickLinks.QuickLinkAction("preview", DashboardMessage.Preview.niceToString(),
+  QuickLinks.registerQuickLink(DashboardEntity, ctx => new QuickLinks.QuickLinkAction("preview", () => DashboardMessage.Preview.niceToString(),
     e => Navigator.API.fetchAndRemember(ctx.lite)
       .then(db => {
         if (db.entityType == undefined)
-          Navigator.pushOrOpenInTab(dashboardUrl(ctx.lite), e);
+          AppContext.pushOrOpenInTab(dashboardUrl(ctx.lite), e);
         else
           Navigator.API.fetchAndRemember(db.entityType)
             .then(t => Finder.find({ queryName: t.cleanName }))
@@ -137,9 +206,16 @@ export function start(options: { routes: JSX.Element[] }) {
               if (!entity)
                 return;
 
-              Navigator.pushOrOpenInTab(dashboardUrl(ctx.lite, entity), e);
+              AppContext.pushOrOpenInTab(dashboardUrl(ctx.lite, entity), e);
             }).done();
       }).done()));
+}
+
+export function home(): Promise<Lite<DashboardEntity> | null> {
+  if (!Navigator.isViewable(DashboardEntity))
+    return Promise.resolve(null);
+
+  return API.home();
 }
 
 export function defaultIcon<T extends IPartEntity>(part: T) {
@@ -168,7 +244,7 @@ declare module '@framework/Signum.Entities' {
 
   export interface EntityPack<T extends ModifiableEntity> {
     dashboards?: Array<Lite<DashboardEntity>>;
-    embeddedDashboard?: DashboardEntity;
+    embeddedDashboards?: DashboardEntity[];
   }
 }
 

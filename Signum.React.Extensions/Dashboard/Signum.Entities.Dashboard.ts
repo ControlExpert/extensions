@@ -6,16 +6,29 @@ import { MessageKey, QueryKey, Type, EnumType, registerSymbol } from '../../../F
 import * as Entities from '../../../Framework/Signum.React/Scripts/Signum.Entities'
 import * as Basics from '../../../Framework/Signum.React/Scripts/Signum.Entities.Basics'
 import * as UserAssets from '../UserAssets/Signum.Entities.UserAssets'
+import * as Signum from '../Basics/Signum.Entities.Basics'
 import * as UserQueries from '../UserQueries/Signum.Entities.UserQueries'
 import * as Chart from '../Chart/Signum.Entities.Chart'
 import * as Authorization from '../Authorization/Signum.Entities.Authorization'
 
 
+export const CombinedUserChartPartEntity = new Type<CombinedUserChartPartEntity>("CombinedUserChartPart");
+export interface CombinedUserChartPartEntity extends Entities.Entity, IPartEntity {
+  Type: "CombinedUserChartPart";
+  userCharts: Entities.MList<Chart.UserChartEntity>;
+  showData: boolean;
+  allowChangeShowData: boolean;
+  combinePinnedFiltersWithSameLabel: boolean;
+  useSameScale: boolean;
+  requiresTitle: boolean;
+}
+
 export const DashboardEmbedededInEntity = new EnumType<DashboardEmbedededInEntity>("DashboardEmbedededInEntity");
 export type DashboardEmbedededInEntity =
   "None" |
   "Top" |
-  "Bottom";
+  "Bottom" |
+  "Tab";
 
 export const DashboardEntity = new Type<DashboardEntity>("Dashboard");
 export interface DashboardEntity extends Entities.Entity, UserAssets.IUserAssetEntity {
@@ -78,20 +91,9 @@ export interface PanelPartEmbedded extends Entities.EmbeddedEntity {
   row: number;
   startColumn: number;
   columns: number;
-  style: PanelStyle;
+  style: Signum.BootstrapStyle;
   content: IPartEntity;
 }
-
-export const PanelStyle = new EnumType<PanelStyle>("PanelStyle");
-export type PanelStyle =
-  "Light" |
-  "Dark" |
-  "Primary" |
-  "Secondary" |
-  "Success" |
-  "Info" |
-  "Warning" |
-  "Danger";
 
 export const UserChartPartEntity = new Type<UserChartPartEntity>("UserChartPart");
 export interface UserChartPartEntity extends Entities.Entity, IPartEntity {
@@ -99,6 +101,8 @@ export interface UserChartPartEntity extends Entities.Entity, IPartEntity {
   userChart: Chart.UserChartEntity;
   showData: boolean;
   allowChangeShowData: boolean;
+  createNew: boolean;
+  autoRefresh: boolean;
   requiresTitle: boolean;
 }
 
@@ -109,6 +113,7 @@ export interface UserQueryPartEntity extends Entities.Entity, IPartEntity {
   renderMode: UserQueryPartRenderMode;
   allowSelection: boolean;
   showFooter: boolean;
+  createNew: boolean;
   requiresTitle: boolean;
 }
 
@@ -116,6 +121,13 @@ export const UserQueryPartRenderMode = new EnumType<UserQueryPartRenderMode>("Us
 export type UserQueryPartRenderMode =
   "SearchControl" |
   "BigValue";
+
+export const UserTreePartEntity = new Type<UserTreePartEntity>("UserTreePart");
+export interface UserTreePartEntity extends Entities.Entity, IPartEntity {
+  Type: "UserTreePart";
+  userQuery: UserQueries.UserQueryEntity;
+  requiresTitle: boolean;
+}
 
 export const ValueUserQueryElementEmbedded = new Type<ValueUserQueryElementEmbedded>("ValueUserQueryElementEmbedded");
 export interface ValueUserQueryElementEmbedded extends Entities.EmbeddedEntity {

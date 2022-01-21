@@ -2,10 +2,11 @@ import * as React from 'react'
 import { RouteComponentProps } from 'react-router'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import * as d3 from 'd3'
-import * as Navigator from '@framework/Navigator'
+import * as AppContext from '@framework/AppContext'
 import { API, HeavyProfilerEntry } from '../ProfilerClient'
 import "./Profiler.css"
-import { useTitle, useAPI, useAPIWithReload, useSize } from '../../../../Framework/Signum.React/Scripts/Hooks'
+import { useAPI, useAPIWithReload, useSize } from '@framework/Hooks'
+import { useTitle } from '@framework/AppContext'
 
 interface HeavyListProps extends RouteComponentProps<{}> {
 
@@ -128,9 +129,9 @@ function EntrieListPath({ width, entries }: { width: number, entries: HeavyProfi
     let url = "~/profiler/heavy/entry/" + v.fullIndex;
 
     if (e.ctrlKey) {
-      window.open(Navigator.toAbsoluteUrl(url));
+      window.open(AppContext.toAbsoluteUrl(url));
     } else {
-      Navigator.history.push(url);
+      AppContext.history.push(url);
     }
   }
 
@@ -140,8 +141,8 @@ function EntrieListPath({ width, entries }: { width: number, entries: HeavyProfi
         <rect className="left-background" x={0} y={y(i)} width={labelWidth} height={entryHeight} fill="#ddd" stroke="#fff" />
         <text className="label label-left" y={y(i)} dy={fontPadding + fontSize} fill="#000">{v.role + " " + v.additionalData}</text>
         <rect className="right-background" x={labelWidth} y={y(i)} width={width - labelWidth} height={entryHeight} fill="#fff" stroke="#ddd" />
-        <rect className="shape" x={x(v.start)} y={y(i)} width={x(v.end) - x(v.start)} height={entryHeight} fill={v.color} />
-        <text className="label label-right" x={x(v.end) + 3} y={y(i)} width={x(v.end) - x(v.start)} dy={fontPadding + fontSize} height={entryHeight} fill='#000'>{v.elapsed}</text>
+        <rect className="shape" x={x(v.start)} y={y(i)} width={x(v.end)! - x(v.start)!} height={entryHeight} fill={v.color} />
+        <text className="label label-right" x={x(v.end)! + 3} y={y(i)} width={x(v.end)! - x(v.start)!} dy={fontPadding + fontSize} height={entryHeight} fill='#000'>{v.elapsed}</text>
         <title>{v.elapsed + " - " + v.additionalData}</title>
       </g>)}
     </svg>

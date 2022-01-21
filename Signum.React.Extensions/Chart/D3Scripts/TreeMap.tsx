@@ -28,7 +28,7 @@ export default function renderTreeMap({ data, width, height, parameters, loading
   if (colorScaleColumn) {
     var scaleFunc = scaleFor(colorScaleColumn, data.rows.map(r => colorScaleColumn!.getValue(r)), 0, 1, parameters["ColorScale"]);
     var colorInterpolator = ChartUtils.getColorInterpolation(parameters["ColorInterpolate"]);
-    color = r => colorInterpolator && colorInterpolator(scaleFunc(colorScaleColumn!.getValue(r)));
+    color = r => colorInterpolator && colorInterpolator(scaleFunc(colorScaleColumn!.getValue(r))!);
   }
   else if (colorSchemeColumn) {
     var categoryColor = ChartUtils.colorCategory(parameters, data.rows.map(r => colorSchemeColumn!.getValueKey(r)));
@@ -49,7 +49,7 @@ export default function renderTreeMap({ data, width, height, parameters, loading
 
   var size = scaleFor(valueColumn, data.rows.map(r => valueColumn.getValue(r)), 0, 1, parameters["Scale"]);
 
-  root.sum(r => r == null ? 0 : size(valueColumn.getValue(r as ChartRow)));
+  root.sum(r => r == null ? 0 : size(valueColumn.getValue(r as ChartRow))!);
 
   var opacity = parentColumn ? parseFloat(parameters["Opacity"]) : 1;
   var padding = parentColumn ? parseInt(parameters["Padding"]) : 1;
@@ -94,7 +94,7 @@ export default function renderTreeMap({ data, width, height, parameters, loading
               width={nodeWidth(d)}
               height={nodeHeight(d)}
               fill={parentColumn!.getColor((d.data as Folder).folder) ?? folderColor!((d.data as Folder).folder)}
-              onClick={e => onDrillDown({ c2: (d.data as Folder).folder })} cursor="pointer">
+              onClick={e => onDrillDown({ c2: (d.data as Folder).folder }, e)} cursor="pointer">
               <title>
                 {folderColor!(((d.data as Folder).folder))}
               </title>
@@ -106,7 +106,7 @@ export default function renderTreeMap({ data, width, height, parameters, loading
               width={nodeWidth(d)}
               height={nodeHeight(d)}
               fill={color(d.data as ChartRow)!}
-              onClick={e => onDrillDown(d.data as ChartRow)}
+              onClick={e => onDrillDown(d.data as ChartRow, e)}
               cursor="pointer">
               <title>
                 {keyColumn.getValueNiceName(d.data as ChartRow) + ': ' + valueColumn.getValueNiceName(d.data as ChartRow)}
@@ -119,7 +119,7 @@ export default function renderTreeMap({ data, width, height, parameters, loading
               dominantBaseline="middle"
               dx={nodeWidth(d) / 2}
               dy={nodeHeight(d) / 2 + (showNumber ? -6 : 0)}
-              onClick={e => onDrillDown(d.data as ChartRow)} cursor="pointer">
+              onClick={e => onDrillDown(d.data as ChartRow, e)} cursor="pointer">
               {keyColumn.getValueNiceName(d.data as ChartRow)}
               <title>
                 {keyColumn.getValueNiceName(d.data as ChartRow) + ': ' + valueColumn.getValueNiceName(d.data as ChartRow)}
@@ -136,7 +136,7 @@ export default function renderTreeMap({ data, width, height, parameters, loading
               fontWeight="bold"
               dx={nodeWidth(d) / 2}
               dy={nodeHeight(d) / 2 + 6}
-              onClick={e => onDrillDown(d.data as ChartRow)} cursor="pointer">
+              onClick={e => onDrillDown(d.data as ChartRow, e)} cursor="pointer">
               {valueColumn.getValueNiceName(d.data as ChartRow)}
             </TextEllipsis>
           }

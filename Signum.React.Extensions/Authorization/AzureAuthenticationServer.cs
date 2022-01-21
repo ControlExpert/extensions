@@ -15,13 +15,14 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Signum.Engine;
 using Signum.Engine.Operations;
+using Signum.Engine.Basics;
 
 namespace Signum.React.Authorization
 {
 
     public class AzureADAuthenticationServer
     {
-        public static bool LoginAzureADAuthentication(ActionContext ac, string jwt)
+        public static bool LoginAzureADAuthentication(ActionContext ac, string jwt, bool throwErrors)
         {
             using (AuthLogic.Disable())
             {
@@ -38,9 +39,10 @@ namespace Signum.React.Authorization
                     UserEntity? user =
                         Database.Query<UserEntity>().SingleOrDefault(a => a.Mixin<UserOIDMixin>().OID == ctx.OID);
 
-                    if(user == null && ada.GetConfig().AllowSimpleUserNames)
+                    if(user == null)
                     {
-                        user = Database.Query<UserEntity>().SingleOrDefault(a => a.UserName == ctx.UserName);
+                        user = Database.Query<UserEntity>().SingleOrDefault(a => a.UserName == ctx.UserName) ??
+                        (ctx.UserName.Contains("@") && ada.GetConfig().AllowMatchUsersBySimpleUserName ? Database.Query<UserEntity>().SingleOrDefault(a => a.Email == ctx.UserName || a.UserName == ctx.UserName.Before("@")) : null);
 
                         if (user != null && user.Mixin<UserOIDMixin>().OID == null)
                         {
@@ -65,8 +67,12 @@ namespace Signum.React.Authorization
                     AuthServer.AddUserSession(ac, user);
                     return true;
                 }
-                catch
+                catch(Exception ex)
                 {
+                    ex.LogException();
+                    if (throwErrors)
+                        throw;
+
                     return false;
                 }
             }

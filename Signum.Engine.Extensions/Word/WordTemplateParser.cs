@@ -140,12 +140,12 @@ namespace Signum.Engine.Word
             if (!nodeProvider.IsText(only))
                 return;
 
-            var text = nodeProvider.GetText(only);
+            var text = nodeProvider.GetText(only!);
             if (!TemplateUtils.KeywordsRegex.IsMatch(text))
                 return;
 
             par.RemoveChild(only);
-            par.AppendChild(nodeProvider.WrapInRun(only));
+            par.AppendChild(nodeProvider.WrapInRun(only!));
         }
 
         private static List<ElementInfo> GetElementInfos(IEnumerable<OpenXmlElement> childrens, INodeProvider nodeProvider)
@@ -381,7 +381,7 @@ namespace Signum.Engine.Word
         {
             if (token?.Variable.HasText() == true)
             {
-                if (Variables.TryGetValue(token!.Variable!, out ValueProviderBase t))
+                if (Variables.TryGetValue(token!.Variable!, out ValueProviderBase? t))
                 {
                     if (!t.Equals(token))
                         AddError(true, "There is already a variable '{0}' defined in this scope".FormatWith(token.Variable));

@@ -1,4 +1,4 @@
-﻿using Signum.React.Json;
+using Signum.React.Json;
 using Signum.Utilities;
 using System.Linq;
 using System.Reflection;
@@ -20,7 +20,7 @@ namespace Signum.React.UserQueries
 
             SignumControllerFactory.RegisterArea(MethodInfo.GetCurrentMethod());
 
-            EntityJsonConverter.AfterDeserilization.Register((UserQueryEntity uq) =>
+            SignumServer.WebEntityJsonConverterFactory.AfterDeserilization.Register((UserQueryEntity uq) =>
             {
                 if (uq.Query != null)
                 {
