@@ -65,7 +65,13 @@ namespace Signum.Engine.Authorization
                         if (error != null)
                             throw new ApplicationException(error);
 
-                        user.PasswordHash = Security.EncodePassword(password);
+                        if (user.State == UserState.Disabled)
+                        {
+                            user.Execute(UserOperation.Enable);
+                        }
+                        
+                        user.PasswordHash = Security.EncodePassword(user.UserName, password).Last();
+                        user.LoginFailedCounter = 0;
                         using (AuthLogic.Disable())
                             user.Execute(UserOperation.Save);
                     }

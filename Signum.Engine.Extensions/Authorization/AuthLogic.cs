@@ -265,11 +265,11 @@ namespace Signum.Engine.Authorization
             OnRulesChanged?.Invoke();
         }
 
-        public static UserEntity Login(string username, byte[] passwordHash, out string authenticationType)
+        public static UserEntity Login(string username, IList<byte[]> passwordHashes, out string authenticationType)
         {
             using (AuthLogic.Disable())
             {
-                UserEntity user = RetrieveUser(username, passwordHash);
+                UserEntity user = RetrieveUser(username, passwordHashes);
 
                 OnUserLogingIn(user);
 
@@ -284,7 +284,7 @@ namespace Signum.Engine.Authorization
             UserLogingIn?.Invoke(user);
         }
 
-        public static UserEntity RetrieveUser(string username, byte[] passwordHash)
+        public static UserEntity RetrieveUser(string username, IList<byte[]> passwordHashes)
         {
             using (AuthLogic.Disable())
             {
@@ -292,14 +292,48 @@ namespace Signum.Engine.Authorization
                 if (user == null)
                     throw new IncorrectUsernameException(LoginAuthMessage.Username0IsNotValid.NiceToString().FormatWith(username));
 
-                if (!user.PasswordHash.SequenceEqual(passwordHash))
+                using (UserHolder.UserSession(SystemUser))
+                {
+                    if (!passwordHashes.Any(passwordHash => passwordHash.SequenceEqual(user.PasswordHash)))
+                    {
+                        user.LoginFailedCounter++;
+                        user.Execute(UserOperation.Save);
+
+                        if (MaxFailedLoginAttempts.HasValue && 
+                            user.LoginFailedCounter == MaxFailedLoginAttempts && 
+                            user.State == UserState.Saved)
+                        {
+                            var config = EmailLogic.Configuration;
+                            var request = ResetPasswordRequestLogic.ResetPasswordRequest(user);
+                            var url = $"{config.UrlLeft}/auth/resetPassword?code={request.Code}";
+
+                            var mail = new UserLockedMail(user, url);
+                            mail.SendMailAsync();
+                            
+                            user.Execute(UserOperation.Disable);
+
+                            throw new UserLockedException(LoginAuthMessage.User0IsDisabled.NiceToString()
+                                .FormatWith(user.UserName));
+                        }
+
                     throw new IncorrectPasswordException(LoginAuthMessage.IncorrectPassword.NiceToString());
+
+                if (!user.PasswordHash.SequenceEqual(passwordHashes.Last()))
+                {
+                    user.PasswordHash = passwordHashes.Last();
+
+                    using (AuthLogic.Disable())
+                    using (OperationLogic.AllowSave<UserEntity>())
+                    {
+                        user.Save();
+                    }
+                }
 
                 return user;
             }
         }
 
-        public static UserEntity? TryRetrieveUser(string username, byte[] passwordHash)
+        public static UserEntity? TryRetrieveUser(string username, IList<byte[]> passwordHashes)
         {
             using (AuthLogic.Disable())
             {
@@ -307,7 +341,7 @@ namespace Signum.Engine.Authorization
                 if (user == null)
                     return null;
 
-                if (!user.PasswordHash.SequenceEqual(passwordHash))
+                if (!passwordHashes.Any(passwordHash => passwordHash.SequenceEqual(user.PasswordHash)))
                     return null;
 
                 return user;
