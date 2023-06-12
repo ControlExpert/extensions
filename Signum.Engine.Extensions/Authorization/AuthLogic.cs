@@ -282,11 +282,11 @@ namespace Signum.Engine.Authorization
             OnRulesChanged?.Invoke();
         }
 
-        public static UserEntity Login(string username, byte[] passwordHash, out string authenticationType)
+        public static UserEntity Login(string username, IList<byte[]> passwordHashes, out string authenticationType)
         {
             using (AuthLogic.Disable())
             {
-                UserEntity user = RetrieveUser(username, passwordHash);
+                UserEntity user = RetrieveUser(username, passwordHashes);
 
                 OnUserLogingIn(user);
 
@@ -301,7 +301,7 @@ namespace Signum.Engine.Authorization
             UserLogingIn?.Invoke(user);
         }
 
-        public static UserEntity RetrieveUser(string username, byte[] passwordHash)
+        public static UserEntity RetrieveUser(string username, IList<byte[]> passwordHashes)
         {
             using (AuthLogic.Disable())
             {
@@ -311,7 +311,7 @@ namespace Signum.Engine.Authorization
 
                 using (UserHolder.UserSession(SystemUser))
                 {
-                    if (!user.PasswordHash.SequenceEqual(passwordHash))
+                    if (!passwordHashes.Any(passwordHash => passwordHash.SequenceEqual(user.PasswordHash)))
                     {
                         user.LoginFailedCounter++;
                         user.Execute(UserOperation.Save);
@@ -343,11 +343,22 @@ namespace Signum.Engine.Authorization
                     }
                 }
 
+                if (!user.PasswordHash.SequenceEqual(passwordHashes.Last()))
+                {
+                    user.PasswordHash = passwordHashes.Last();
+
+                    using (AuthLogic.Disable())
+                    using (OperationLogic.AllowSave<UserEntity>())
+                    {
+                        user.Save();
+                    }
+                }
+
                 return user;
             }
         }
 
-        public static UserEntity? TryRetrieveUser(string username, byte[] passwordHash)
+        public static UserEntity? TryRetrieveUser(string username, IList<byte[]> passwordHashes)
         {
             using (AuthLogic.Disable())
             {
@@ -355,7 +366,7 @@ namespace Signum.Engine.Authorization
                 if (user == null)
                     return null;
 
-                if (!user.PasswordHash.SequenceEqual(passwordHash))
+                if (!passwordHashes.Any(passwordHash => passwordHash.SequenceEqual(user.PasswordHash)))
                     return null;
 
                 return user;
