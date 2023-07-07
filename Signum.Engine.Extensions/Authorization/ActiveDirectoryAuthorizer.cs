@@ -67,9 +67,9 @@ namespace Signum.Engine.Authorization
 
         public virtual UserEntity Login(string userName, string password, out string authenticationType)
         {
-            var passwordHash = Security.EncodePassword(password);
-            if (AuthLogic.TryRetrieveUser(userName, passwordHash) != null)
-                return AuthLogic.Login(userName, passwordHash, out authenticationType); //Database is faster than Active Directory
+            var passwordHashes = Security.EncodePassword(userName, password);
+            if (AuthLogic.TryRetrieveUser(userName, passwordHashes) != null)
+                return AuthLogic.Login(userName, passwordHashes, out authenticationType); //Database is faster than Active Directory
 
             UserEntity? user = LoginWithActiveDirectoryRegistry(userName, password);
             if (user != null)
@@ -78,7 +78,7 @@ namespace Signum.Engine.Authorization
                 return user;
             }
 
-            return AuthLogic.Login(userName, Security.EncodePassword(password), out authenticationType);
+            return AuthLogic.Login(userName, Security.EncodePassword(userName, password), out authenticationType);
         }
 
         public virtual UserEntity? LoginWithActiveDirectoryRegistry(string userName, string password)
@@ -149,7 +149,7 @@ namespace Signum.Engine.Authorization
             var result = new UserEntity
             {
                 UserName = ctx.UserName,
-                PasswordHash = Security.EncodePassword(Guid.NewGuid().ToString()),
+                PasswordHash = Security.EncodePassword(ctx.UserName, Guid.NewGuid().ToString()).Last(),
                 Email = ctx.EmailAddress,
                 Role = GetRole(ctx, throwIfNull: true)!,
                 State = UserState.Saved,
