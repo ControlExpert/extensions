@@ -17,15 +17,15 @@
     <Member Name="RoleMapping" Description="Rollenzuordnung" />
   </Type>
   <Type Name="ActivityWithRemarks" Description="Aktivität mit Bemerkungen" />
-  <Type Name="AlertCurrentState" Description="Aktueller Status der Warnung">
+  <Type Name="AlertCurrentState" Description="aktueller Status der Benachrichtigung">
     <Member Name="Alerted" Description="Gewarnte" />
     <Member Name="Attended" Description="Erledigte" />
     <Member Name="Future" Description="Zukünftige" />
   </Type>
-  <Type Name="AlertEntity" Description="Warnung">
-    <Member Name="AlertDate" Description="Warnungsdatum" />
+  <Type Name="AlertEntity" Description="Benachrichtigung">
+    <Member Name="AlertDate" Description="Benachrichtigungsdatum" />
     <Member Name="Alerted" Description="Gewarnte" />
-    <Member Name="AlertType" Description="Warnungstyp" />
+    <Member Name="AlertType" Description="Benachrichtigungstyp" />
     <Member Name="Attended" Description="Erledigte" />
     <Member Name="AttendedBy" Description="Erledigt von" />
     <Member Name="AttendedDate" Description="Erledigungsdatum" />
@@ -41,35 +41,42 @@
     <Member Name="Title" Description="Titel" />
   </Type>
   <Type Name="AlertMessage">
-    <Member Name="Alert" Description="Warnung" />
-    <Member Name="Alerts" Description="Warnungen" />
+    <Member Name="_0HiddenAlerts" Description="{0} versteckte Benachrichtigungen" />
+    <Member Name="_0SimilarAlerts" Description="{0} ähnliche Benachrichtigungen" />
+    <Member Name="Alert" Description="Benachrichtigung" />
+    <Member Name="Alerts" Description="Benachrichtigungen" />
     <Member Name="Alerts_Attended" Description="Erledigte" />
     <Member Name="Alerts_Future" Description="Zukünftige" />
     <Member Name="Alerts_NotAttended" Description="Nicht erledigte" />
+    <Member Name="AllMyAlerts" Description="Alle meine Benachrichtigungen" />
     <Member Name="CheckedAlerts" Description="Erledigte" />
-    <Member Name="CreateAlert" Description="Warnung erstellen" />
+    <Member Name="CloseAll" Description="Alle schließen" />
+    <Member Name="CreateAlert" Description="Benachrichtigung erstellen" />
     <Member Name="CustomDelay" Description="Benutzerdefinierte Verzögerung" />
     <Member Name="DelayDuration" Description="Dauer der Verzögerung" />
     <Member Name="FutureAlerts" Description="Zukünftige" />
-    <Member Name="MyActiveAlerts" Description="Meine aktiven Warnungen" />
-    <Member Name="NewAlert" Description="Neue Warnung" />
+    <Member Name="MyActiveAlerts" Description="Meine aktiven Benachrichtigungen" />
+    <Member Name="NewAlert" Description="Neue Benachrichtigungen" />
+    <Member Name="ViewMore" Description="Mehr sehen" />
     <Member Name="WarnedAlerts" Description="Gewarnte" />
+    <Member Name="YouDoNotHaveAnyActiveAlert" Description="Sie haben keine aktive Benachrichtigung" />
   </Type>
   <Type Name="AlertOperation">
     <Member Name="Attend" Description="Erledigen" />
     <Member Name="Create" Description="Erstellen" />
-    <Member Name="CreateAlertFromEntity" Description="Warnung aus Entität erstellen" />
+    <Member Name="CreateAlertFromEntity" Description="Benachrichtigung von Entität erstellen" />
     <Member Name="Delay" Description="Verzögerung" />
     <Member Name="Save" Description="Speichern" />
     <Member Name="Unattend" Description="Unerledigt bleiben" />
   </Type>
-  <Type Name="AlertState" Description="Warnungsstatus">
+  <Type Name="AlertState" Description="Benachrichtigungsstatus">
     <Member Name="Attended" Description="Erledigte" />
     <Member Name="New" Description="Neu" />
     <Member Name="Saved" Description="Gespeichert" />
   </Type>
-  <Type Name="AlertTypeEntity" Description="Warnungstyp" PluralDescription="Warnungstypen" />
+  <Type Name="AlertTypeEntity" Description="Benachrichtigungstyp" />
   <Type Name="AlertTypeOperation">
+    <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
   <Type Name="AllowedRule`2">
@@ -155,10 +162,21 @@
   <Type Name="BigStringMixin">
     <Member Name="File" Description="Datei" />
   </Type>
+  <Type Name="BootstrapStyle" Description="Bootstrap-Stil">
+    <Member Name="Danger" Description="Gefahr" />
+    <Member Name="Dark" Description="Dunkel" />
+    <Member Name="Info" Description="Info" />
+    <Member Name="Light" Description="Licht" />
+    <Member Name="Primary" Description="Primäre" />
+    <Member Name="Secondary" Description="Sekundären" />
+    <Member Name="Success" Description="Erfolg" />
+    <Member Name="Warning" Description="Warnung" />
+  </Type>
   <Type Name="BpmnEntityPairEmbedded" Description="Bpmn Entitätenpaar">
     <Member Name="BpmnElementId" Description="Bpmn Elemente Id" />
     <Member Name="Model" Description="Modell" />
   </Type>
+  <Type Name="ButtonOptionEmbedded" />
   <Type Name="CachePermission">
     <Member Name="InvalidateCache" Description="Cache ungültig" />
     <Member Name="ViewCache" Description="Cache sehen" />
@@ -200,10 +218,8 @@
   </Type>
   <Type Name="CaseActivityMixin" />
   <Type Name="CaseActivityOperation">
-    <Member Name="Approve" Description="Genehmigen" />
     <Member Name="CreateCaseActivityFromWorkflow" Description="Erstelle eine Vorgangsaktivität vom Arbeitsablauf" />
     <Member Name="CreateCaseFromWorkflowEventTask" Description="Erstelle eine Vorgangsaktivität vom Arbeitsablauf Event Task" />
-    <Member Name="Decline" Description="Rückgang" />
     <Member Name="Delete" Description="Löschen" />
     <Member Name="FixCaseDescriptions" Description="Vorgangsbeschreibung beheben" />
     <Member Name="Jump" Description="Springen" />
@@ -224,8 +240,6 @@
   <Type Name="CaseActivityState" Description="Vorgangsaktivität Zustand">
     <Member Name="Done" Description="Abgeschlossen" />
     <Member Name="New" Description="Neu" />
-    <Member Name="PendingDecision" Description="Ausstehende Entscheidung" />
-    <Member Name="PendingNext" Description="Ausstehende weiter" />
   </Type>
   <Type Name="CaseActivityTask">
     <Member Name="Timeout" Description="Timeout" />
@@ -339,7 +353,8 @@
     <Member Name="Data" Description="Daten" />
     <Member Name="DeletePalette" Description="Palette löschen" />
     <Member Name="DrawChart" Description="Diagramm chart" />
-    <Member Name="EditUserChart" Description="Benutzerdiagramm bearbeiten" />
+    <Member Name="Edit" Description="Bearbeiten" />
+    <Member Name="HideChartSettings" Description="Diagrammeinstellungen ausblenden" />
     <Member Name="Maximize" Description="Maximieren" />
     <Member Name="Minimize" Description="Minimieren" />
     <Member Name="MyCharts" Description="Meine Charts" />
@@ -347,13 +362,14 @@
     <Member Name="Preview" Description="Vorschau" />
     <Member Name="Reload" Description="Neu laden" />
     <Member Name="SavePalette" Description="Palette speichern" />
+    <Member Name="ShowChartSettings" Description="Diagrammeinstellungen anzeigen" />
     <Member Name="Type0NotFoundInTheDatabase" Description="Typ {0} nicht in der Datenbank enthalten ist" />
     <Member Name="TypeNotFound" Description="Typ nicht gefunden" />
     <Member Name="ViewPalette" Description="Palette anzeigen" />
   </Type>
   <Type Name="ChartPaletteModel" Description="Diagrammpalette">
     <Member Name="Colors" Description="Farben" />
-    <Member Name="Type" Description="Typ" />
+    <Member Name="TypeName" Description="Typname" />
   </Type>
   <Type Name="ChartParameterEmbedded" Description="Diagramm-parameter">
     <Member Name="Name" Description="Name" />
@@ -367,7 +383,6 @@
     <Member Name="ChartScript" Description="Diagrammskript" />
     <Member Name="Columns" Description="Spalten" />
     <Member Name="Filters" Description="Filter" />
-    <Member Name="Invalidator" Description="Invalidator" />
     <Member Name="Multiplications" Description="Multiplikationen" />
     <Member Name="Parameters" Description="Parameter" />
     <Member Name="QueryName" Description="Abfrage-Name" />
@@ -377,7 +392,6 @@
     <Member Name="CertFileType" Description="Zertifikationsdateityp" />
     <Member Name="FullFilePath" Description="Vollständiger Pfad" />
   </Type>
-  <Type Name="CNTKPredictorAlgorithm" />
   <Type Name="CombinedUserChartPartEntity" Description="Kombinierter Benutzerdiagrammteil" Gender="m">
     <Member Name="AllowChangeShowData" Description="Daten anzeigen ändern lassen" />
     <Member Name="CombinePinnedFiltersWithSameLabel" Description="Kombinieren Vorgewahlter Filter Bezeichnung" />
@@ -596,8 +610,6 @@
     <Member Name="LastOnlineTicks" Description="Letzte Onlineticks" />
   </Type>
   <Type Name="DoneType" Description="Fertigstellungstypen">
-    <Member Name="Approve" Description="Genehmigen" />
-    <Member Name="Decline" Description="Rückgang" />
     <Member Name="Jump" Description="Springen" />
     <Member Name="Next" Description="Nächstes" />
     <Member Name="ScriptFailure" Description="Skriptfehler" />
@@ -806,6 +818,7 @@
   </Type>
   <Type Name="EmailMasterTemplateEntity" Description="Master E-Mail-Vorlage">
     <Member Name="Guid" Description="Guid" />
+    <Member Name="IsDefault" Description="Ist Standard" />
     <Member Name="Messages" Description="Nachrichten" />
     <Member Name="Name" Description="Name" />
   </Type>
@@ -938,7 +951,10 @@
     <Member Name="Orders" Description="Reihenfolge" />
     <Member Name="Query" Description="Abfrage" />
     <Member Name="Recipients" Description="Empfänger" />
-    <Member Name="SendDifferentMessages" Description="Verschiedene Nachrichten senden" />
+  </Type>
+  <Type Name="EmailTemplateFromEmbedded" Description="E-Mail Vorlage Von">
+    <Member Name="WhenMany" Description="Wenn viele" />
+    <Member Name="WhenNone" Description="Wenn keine" />
   </Type>
   <Type Name="EmailTemplateMessage">
     <Member Name="EndDateMustBeHigherThanStartDate" Description="Enddatum muss größer als Startdatum sein." />
@@ -967,6 +983,8 @@
   </Type>
   <Type Name="EmailTemplateRecipientEmbedded" Description="E-Mail-Vorlagenempfänger">
     <Member Name="Kind" Description="Art" />
+    <Member Name="WhenMany" Description="Wenn viele" />
+    <Member Name="WhenNone" Description="Wenn keine" />
   </Type>
   <Type Name="EmailTemplateViewMessage">
     <Member Name="Insert" Description="Einfügen" />
@@ -1447,7 +1465,6 @@
   <Type Name="NeuralNetworkEvalFunction" />
   <Type Name="NeuralNetworkHidenLayerEmbedded" />
   <Type Name="NeuralNetworkInitializer" />
-  <Type Name="NeuralNetworkLearner" />
   <Type Name="NeuralNetworkSettingsEntity" />
   <Type Name="NewTasksEmbedded" />
   <Type Name="NoteEntity" Description="Notiz" PluralDescription="Notizen" Gender="f">
@@ -1547,16 +1564,6 @@
     <Member Name="StartColumn" Description="Spalte Start" />
     <Member Name="Style" Description="Stil" />
     <Member Name="Title" Description="Titel" />
-  </Type>
-  <Type Name="PanelStyle" Description="Dashboardstil">
-    <Member Name="Danger" Description="Gefahr" />
-    <Member Name="Dark" Description="Dark" />
-    <Member Name="Info" Description="Info" />
-    <Member Name="Light" Description="Light" />
-    <Member Name="Primary" Description="Primary" />
-    <Member Name="Secondary" Description="Secondary" />
-    <Member Name="Success" Description="Erfolg" />
-    <Member Name="Warning" Description="Warnung" />
   </Type>
   <Type Name="PasswordExpiresIntervalEntity" Description="Passwortablaufintervall" PluralDescription="Passwortablaufintervalle" Gender="m">
     <Member Name="Days" Description="Tage" />
@@ -1760,6 +1767,7 @@
   <Type Name="QueryAllowedRule" Description="Erlaubte Abfrageregel" />
   <Type Name="QueryColumnEmbedded" Description="Abfrage-Spalte">
     <Member Name="DisplayName" Description="Angezeigter Name" />
+    <Member Name="SummaryToken" Description="Zusammenfassung Token" />
     <Member Name="Token" Description="Token" />
   </Type>
   <Type Name="QueryColumnHelpEmbedded" Description="Abfrage Spaltenhilfe">
@@ -2147,6 +2155,8 @@
     <Member Name="YouCanOnlyAddForeachBlocksWithCollectionFields" Description="Sie können nur Foreach-Blöcke mit Collection-Feldern hinzufügen" />
     <Member Name="YouHaveToAddTheElementTokenToUseForeachOnCollectionFields" Description="Sie müssen das Element Token zur Verwendung von Foreach in einem Collection-Feld hinzufügen" />
   </Type>
+  <Type Name="TensorFlowOptimizer" />
+  <Type Name="TensorFlowPredictorAlgorithm" />
   <Type Name="TimeMachineMessage">
     <Member Name="CompareVersions" Description="Versionen vergleichen" />
     <Member Name="EntityDeleted" Description="[Entität gelöscht]" />
@@ -2240,6 +2250,7 @@
     <Member Name="Search" Description="Suchen" />
     <Member Name="Sync" Description="sync" />
     <Member Name="Synchronize0In1" Description="Synchronisieren {0} in {1} " />
+    <Member Name="ThisFieldIsTranslatable" Description="Dieses Feld ist übersetzbar" />
     <Member Name="Type" Description="Typ" />
     <Member Name="View" Description="anzeigen" />
     <Member Name="View0In1" Description="Anzeige {0} in {1}" />
@@ -2383,7 +2394,6 @@
     <Member Name="Filters" Description="Filter" />
     <Member Name="Guid" Description="Guid" />
     <Member Name="HideQuickLink" Description="Verstecke quick Link" />
-    <Member Name="Invalidator" Description="Invalidator" />
     <Member Name="Owner" Description="Eigentümer" />
     <Member Name="Parameters" Description="Parameter" />
     <Member Name="Query" Description="Abfrage" />
@@ -2394,6 +2404,7 @@
   </Type>
   <Type Name="UserChartPartEntity" Description="Benutzerdiagramm Teil" PluralDescription="Benutzerdiagramm Teilen" Gender="n">
     <Member Name="AllowChangeShowData" Description="Änderungsdaten anzeigen lassen" />
+    <Member Name="AutoRefresh" Description="Automatische Aktualisierung" />
     <Member Name="CreateNew" Description="Neue erstellen" />
     <Member Name="RequiresTitle" Description="Erfordert Titel" />
     <Member Name="ShowData" Description="Daten anzeigen" />
@@ -2438,15 +2449,12 @@
   </Type>
   <Type Name="UserQueryMessage">
     <Member Name="_0IsNotFilterable" Description="{0} ist nicht filterbar" />
-    <Member Name="_0ShouldBeEmptyIf1IsSet" Description="{0} sollte leer sein, wenn {1} angegeben ist" />
-    <Member Name="_0ShouldBeNullIf1Is2" Description="{0} sollte null sein, wenn {1} &quot;{2}&quot; ist" />
-    <Member Name="_0ShouldBeSetIf1Is2" Description="{0} sollte angegeben werden, wenn {1} &quot;{2}&quot; ist" />
-    <Member Name="AreYouSureToRemove0" Description="Sind Sie sicher, dass Sie &quot;{0}&quot; entfernen möchten?" />
     <Member Name="Edit" Description="Bearbeiten" />
-    <Member Name="MyQueries" Description="Meine Abfragen" />
+    <Member Name="MakesTheUserQueryAvailableAsAQuickLinkOf0" Description="Stellt die Benutzerabfrage als Quicklink von {0} zur Verfügung" />
+    <Member Name="MakesTheUserQueryAvailableInContextualMenuWhenGrouping0" Description="Macht die Benutzerabfrage im Kontextmenü beim Gruppieren verfügbar {0}" />
     <Member Name="Preview" Description="Vorschau" />
-    <Member Name="RemoveUserQuery" Description="Benutzerabfrage entfernen?" />
     <Member Name="TheFilterOperation0isNotCompatibleWith1" Description="Der Filtervorgang {0} ist nicht kompatibel mit {1}" />
+    <Member Name="TheSelected0" Description="die ausgewählte {0}" />
     <Member Name="Use0ToFilterCurrentEntity" Description="Verwenden Sie {0}, um aktuelle Entität Filtern" />
     <Member Name="UserQueries_BackToDefault" Description="Zurück zum Standard" />
     <Member Name="UserQueries_CreateNew" Description="Erstellen" />
@@ -2535,6 +2543,24 @@
     <Member Name="CreationDate" Description="Erstellungsdatum" />
     <Member Name="Json" Description="Json" />
     <Member Name="User" Description="Benutzer" />
+  </Type>
+  <Type Name="WhenManyFromBehaviour" Description="Verhalten Wenn viele Von ">
+    <Member Name="FistResult" Description="Erstes Ergebnis" />
+    <Member Name="SplitMessages" Description="Geteilte Nachrichten" />
+  </Type>
+  <Type Name="WhenManyRecipiensBehaviour" Description="Verhalten Wenn viele Empfänger">
+    <Member Name="KeepOneMessageWithManyRecipients" Description="Eine Nachricht mit vielen Empfängern" />
+    <Member Name="SplitMessages" Description="Geteilte Nachrichten" />
+  </Type>
+  <Type Name="WhenNoneFromBehaviour" Description="Verhalten Wenn keine Von ">
+    <Member Name="DefaultFrom" Description="Standard Von" />
+    <Member Name="NoMessage" Description="Keine Nachricht" />
+    <Member Name="ThrowException" Description="Ausnahme werfen" />
+  </Type>
+  <Type Name="WhenNoneRecipientsBehaviour" Description="Verhalten Wenn kein Empfänger">
+    <Member Name="NoMessage" Description="Keine Nachricht" />
+    <Member Name="NoRecipients" Description="Keine Empfänger" />
+    <Member Name="ThrowException" Description="Ausnahme werfen" />
   </Type>
   <Type Name="WordAttachmentEntity" Description="Word-Anhang" PluralDescription="Word-Anhänge" Gender="m">
     <Member Name="FileName" Description="Dateiname" />

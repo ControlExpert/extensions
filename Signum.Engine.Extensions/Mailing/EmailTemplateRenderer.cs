@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Signum.Engine.Basics;
 using Signum.Engine.Templating;
 using Signum.Entities;
@@ -48,69 +49,75 @@ namespace Signum.Engine.Mailing
             {
                 foreach (List<EmailOwnerRecipientData> recipients in GetRecipients())
                 {
-                    EmailMessageEntity email;
-                    try
-                    {
-                        var ci = EmailTemplateLogic.GetCultureInfo != null
-                            ? EmailTemplateLogic.GetCultureInfo(entity ?? model?.UntypedEntity as Entity)
-                            : this.cultureInfo ?? 
-                                recipients.Where(a => a.Kind == EmailRecipientKind.To).Select(a => a.OwnerData.CultureInfo).FirstOrDefault()?.ToCultureInfo() ??
-                                EmailLogic.Configuration.DefaultCulture.ToCultureInfo();
-
-                        email = new EmailMessageEntity
-                        {
-                            Target = entity?.ToLite() ?? (this.model!.UntypedEntity as Entity)?.ToLite(),
-                            Recipients = recipients.Select(r => new EmailRecipientEmbedded(r.OwnerData) { Kind = r.Kind }).ToMList(),
-                            From = from,
-                            IsBodyHtml = template.IsBodyHtml,
-                            EditableMessage = template.EditableMessage,
-                            Template = template.ToLite(),
-                            Attachments = template.Attachments.SelectMany(g => EmailTemplateLogic.GenerateAttachment.Invoke(g,
-                            new EmailTemplateLogic.GenerateAttachmentContext(this.qd, template, dicTokenColumn, currentRows, ci)
-                            {
-                                ModelType = template.Model?.ToType(),
-                                Model = model,
-                                Entity = entity,
-                            })).ToMList()
-                        };
-
-                        EmailTemplateMessageEmbedded? message = template.GetCultureMessage(ci) ?? template.GetCultureMessage(EmailLogic.Configuration.DefaultCulture.ToCultureInfo());
-
-                        if (message == null)
-                            throw new InvalidOperationException("Message {0} does not have a message for CultureInfo {1} (or Default)".FormatWith(template, ci));
-
-                        using (CultureInfoUtils.ChangeBothCultures(ci))
-                        {
-                            email.Subject = SubjectNode(message).Print(
-                                new TextTemplateParameters(entity, ci, dicTokenColumn, currentRows)
-                                {
-                                    IsHtml = false,
-                                    Model = model
-                                });
-
-                            email.Body = new BigStringEmbedded(TextNode(message).Print(
-                                new TextTemplateParameters(entity, ci, dicTokenColumn, currentRows)
-                                {
-                                    IsHtml = template.IsBodyHtml,
-                                    Model = model,
-                                }));
-                        }
-
-                    }
-                    catch (Exception ex)
-                    {
-                        ex.Data["Template"] = this.template.ToLite();
-                        ex.Data["Model"] = this.model;
-                        ex.Data["Entity"] = this.entity;
-                        throw;
-                    }
-
+                    EmailMessageEntity email = CreateEmailMessageInternal(from, recipients);
 
                     yield return email;
                 }
             }
         }
-            
+
+        private EmailMessageEntity CreateEmailMessageInternal(EmailAddressEmbedded from, List<EmailOwnerRecipientData> recipients)
+        {
+            EmailMessageEntity email;
+            try
+            {
+                var ci = EmailTemplateLogic.GetCultureInfo != null
+                    ? EmailTemplateLogic.GetCultureInfo(entity ?? model?.UntypedEntity as Entity)
+                    : this.cultureInfo ?? 
+                        recipients.Where(a => a.Kind == EmailRecipientKind.To).Select(a => a.OwnerData.CultureInfo).FirstOrDefault()?.ToCultureInfo() ??
+                        EmailLogic.Configuration.DefaultCulture.ToCultureInfo();
+
+                email = new EmailMessageEntity
+                {
+                    Target = entity?.ToLite() ?? (this.model!.UntypedEntity as Entity)?.ToLite(),
+                    Recipients = recipients.Select(r => new EmailRecipientEmbedded(r.OwnerData) { Kind = r.Kind }).ToMList(),
+                    From = from,
+                    IsBodyHtml = template.IsBodyHtml,
+                    EditableMessage = template.EditableMessage,
+                    Template = template.ToLite(),
+                    Attachments = template.Attachments.SelectMany(g => EmailTemplateLogic.GenerateAttachment.Invoke(g,
+                    new EmailTemplateLogic.GenerateAttachmentContext(this.qd, template, dicTokenColumn, currentRows, ci)
+                    {
+                        ModelType = template.Model?.ToType(),
+                        Model = model,
+                        Entity = entity,
+                    })).ToMList()
+                };
+
+                EmailTemplateMessageEmbedded? message = template.GetCultureMessage(ci) ?? template.GetCultureMessage(EmailLogic.Configuration.DefaultCulture.ToCultureInfo());
+
+                if (message == null)
+                    throw new InvalidOperationException("Message {0} does not have a message for CultureInfo {1} (or Default)".FormatWith(template, ci));
+
+                using (CultureInfoUtils.ChangeBothCultures(ci))
+                {
+                    email.Subject = SubjectNode(message).Print(
+                        new TextTemplateParameters(entity, ci, dicTokenColumn, currentRows)
+                        {
+                            IsHtml = false,
+                            Model = model
+                        });
+
+                    email.Body = new BigStringEmbedded(TextNode(message).Print(
+                        new TextTemplateParameters(entity, ci, dicTokenColumn, currentRows)
+                        {
+                            IsHtml = template.IsBodyHtml,
+                            Model = model,
+                        }));
+                }
+
+            }
+            catch (Exception ex)
+            {
+                ex.Data["Template"] = this.template.ToLite();
+                ex.Data["Model"] = this.model;
+                ex.Data["Entity"] = this.entity;
+                throw;
+            }
+
+            return email;
+        }
+
         TextTemplateParser.BlockNode TextNode(EmailTemplateMessageEmbedded message)
         {
             if (message.TextParsedNode == null)
@@ -148,28 +155,45 @@ namespace Signum.Engine.Mailing
                 if (template.From.Token != null)
                 {
                     ResultColumn owner = dicTokenColumn.GetOrThrow(template.From.Token.Token);
+                    var groups = currentRows.GroupBy(r => (EmailOwnerData)r[owner]!).ToList();
 
-                    if (!template.SendDifferentMessages)
+                    var groupsWithEmail = groups.Where(a => a.Key.Email.HasText()).ToList();
+
+                    if(groupsWithEmail.IsEmpty())
                     {
-                        yield return new EmailAddressEmbedded(currentRows.Select(r => (EmailOwnerData)r[owner]!).Distinct().SingleEx());
+                        switch (template.From.WhenNone)
+                        {
+                            case WhenNoneFromBehaviour.ThrowException:
+                                if (groups.Count() == 0)
+                                    throw new InvalidOperationException($"Impossible to send {this.template} because From Token ({template.From.Token}) returned no result");
+                                else
+                                    throw new InvalidOperationException($"Impossible to send {this.template} because From Token ({template.From.Token}) returned results without Email addresses");
+
+                            case WhenNoneFromBehaviour.NoMessage:
+                                yield break;
+                            case WhenNoneFromBehaviour.DefaultFrom:
+                                if (smtpConfig != null && smtpConfig.DefaultFrom != null)
+                                    yield return smtpConfig.DefaultFrom.Clone();
+                                else
+                                    throw new InvalidOperationException("Not Default From found");
+                                break;
+                            default:
+                                throw new UnexpectedValueException(template.From.WhenNone);
+                        }
                     }
                     else
                     {
-                        var groups = currentRows.GroupBy(r => (EmailOwnerData)r[owner]!);
-
-                        if (groups.Count() == 1 && groups.Single().Key?.Owner == null)
-                            yield break;
-                        else
+                        if (template.From.WhenMany == WhenManyFromBehaviour.FistResult)
+                            groupsWithEmail = groupsWithEmail.Take(1).ToList();
+                    
+                        foreach (var gr in groupsWithEmail)
                         {
-                            foreach (var gr in groups)
-                            {
-                                var old = currentRows;
-                                currentRows = gr;
+                            var old = currentRows;
+                            currentRows = gr;
 
-                                yield return new EmailAddressEmbedded(gr.Key);
+                            yield return new EmailAddressEmbedded(gr.Key);
 
-                                currentRows = old;
-                            }
+                            currentRows = old;
                         }
                     }
                 }
@@ -198,14 +222,15 @@ namespace Signum.Engine.Mailing
 
         IEnumerable<List<EmailOwnerRecipientData>> GetRecipients()
         {
-            foreach (List<EmailOwnerRecipientData> recipients in TokenRecipients(template.Recipients.Where(a => a.Token != null).ToList()))
+            foreach (List<EmailOwnerRecipientData> recipients in TokenRecipientsCrossProduct(template.Recipients.Where(a => a.Token != null).ToList(), 0))
             {
                 recipients.AddRange(template.Recipients.Where(a => a.Token == null).Select(tr => new EmailOwnerRecipientData(new EmailOwnerData
                 {
                     CultureInfo = null,
                     Email = tr.EmailAddress!,
                     DisplayName = tr.DisplayName
-                }) { Kind = tr.Kind }));
+                })
+                { Kind = tr.Kind }));
 
                 if (model != null)
                     recipients.AddRange(model.GetRecipients());
@@ -216,37 +241,13 @@ namespace Signum.Engine.Mailing
                         new EmailOwnerRecipientData(new EmailOwnerData { CultureInfo = null, DisplayName = r.DisplayName, Email = r.EmailAddress, Owner = r.EmailOwner }) { Kind = r.Kind }));
                 }
 
-                if (recipients.Where(r=>r.OwnerData.Email.HasText()).Any())
+                if (recipients.Where(r => r.OwnerData.Email.HasText()).Any())
                     yield return recipients;
             }
         }
 
-        private IEnumerable<List<EmailOwnerRecipientData>> TokenRecipients(List<EmailTemplateRecipientEmbedded> tokenRecipients)
-        {
-            if (!template.SendDifferentMessages)
-            {
-                return new[]
-                { 
-                    tokenRecipients.SelectMany(tr =>
-                    {
-                        ResultColumn owner = dicTokenColumn.GetOrThrow(tr.Token!.Token);
 
-                        List<EmailOwnerData> groups = currentRows.Select(r => (EmailOwnerData)r[owner]!).Distinct().ToList();
-
-                        if (groups.Count == 1 && groups[0]?.Email == null)
-                            return new List<EmailOwnerRecipientData>();
-
-                        return groups.Where(g => g.Email.HasText()).Select(g => new EmailOwnerRecipientData(g) { Kind = tr.Kind }).ToList();
-                    }).ToList()
-                };
-            }
-            else
-            {
-                return CrossProduct(tokenRecipients, 0);
-            }
-        }
-
-        private IEnumerable<List<EmailOwnerRecipientData>> CrossProduct(List<EmailTemplateRecipientEmbedded> tokenRecipients, int pos)
+        private IEnumerable<List<EmailOwnerRecipientData>> TokenRecipientsCrossProduct(List<EmailTemplateRecipientEmbedded> tokenRecipients, int pos)
         {
             if (tokenRecipients.Count == pos)
                 yield return new List<EmailOwnerRecipientData>();
@@ -258,26 +259,65 @@ namespace Signum.Engine.Mailing
 
                 var groups = currentRows.GroupBy(r => (EmailOwnerData)r[owner]!).ToList();
 
-                if (groups.Count == 1 && groups[0].Key?.Email == null)
+                var groupsWithEmail = groups.Where(a => a.Key.Email.HasText()).ToList();
+
+                if (groupsWithEmail.IsEmpty())
                 {
-                    yield return new List<EmailOwnerRecipientData>();
+                    switch (tr.WhenNone)
+                    {
+                        case WhenNoneRecipientsBehaviour.ThrowException:
+                            if (groups.Count() == 0)
+                                throw new InvalidOperationException($"Impossible to send {this.template} because {tr.Kind} Token ({tr.Token}) returned no result");
+                            else
+                                throw new InvalidOperationException($"Impossible to send {this.template} because {tr.Kind} Token ({tr.Token}) returned results without Email addresses");
+
+                        case WhenNoneRecipientsBehaviour.NoMessage:
+                            yield break;
+                        case WhenNoneRecipientsBehaviour.NoRecipients:
+                            foreach (var item in TokenRecipientsCrossProduct(tokenRecipients, pos + 1))
+                            {
+                                yield return item;
+                            }
+                            break;
+                        default:
+                            throw new UnexpectedValueException(tr.WhenNone);
+                    }
+
                 }
                 else
                 {
-                    foreach (var gr in groups)
+                    if (tr.WhenMany == WhenManyRecipiensBehaviour.SplitMessages)
                     {
-                        var rec = new EmailOwnerRecipientData(gr.Key) { Kind = tr.Kind };
+                        foreach (var gr in groupsWithEmail)
+                        {
+                            var rec = new EmailOwnerRecipientData(gr.Key) { Kind = tr.Kind };
 
-                        var old = currentRows;
-                        currentRows = gr;
+                            var old = currentRows;
+                            currentRows = gr;
 
-                        foreach (var list in CrossProduct(tokenRecipients, pos + 1))
+                            foreach (var list in TokenRecipientsCrossProduct(tokenRecipients, pos + 1))
+                            {
+                                var result = list.ToList();
+                                result.Insert(0, rec);
+                                yield return result;
+                            }
+                            currentRows = old;
+                        }
+                    }
+                    else if (tr.WhenMany == WhenManyRecipiensBehaviour.KeepOneMessageWithManyRecipients)
+                    {
+                        var recipients = groupsWithEmail.Select(g => new EmailOwnerRecipientData(g.Key) { Kind = tr.Kind }).ToList();
+
+                        foreach (var list in TokenRecipientsCrossProduct(tokenRecipients, pos + 1))
                         {
                             var result = list.ToList();
-                            result.Insert(0, rec);
+                            result.InsertRange(0, recipients);
                             yield return result;
                         }
-                        currentRows = old;
+                    }
+                    else
+                    {
+                        throw new UnexpectedValueException(tr.WhenMany);
                     }
                 }
             }

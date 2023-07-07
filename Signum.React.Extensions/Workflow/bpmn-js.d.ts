@@ -139,6 +139,8 @@ declare namespace BPMN {
     bounds: BoundsElement;
     lanes: ModdleElement[];
     eventDefinitions?: ModdleElement[];
+    incoming?: ConnectionModdleElemnet[];
+    outgoing?: ConnectionModdleElemnet[];
   }
 
   interface BoundsElement extends ModdleElement {
@@ -199,6 +201,14 @@ declare namespace BPMN {
     left?: number;
     right?: number
   }
+
+  interface MenuEntry {
+    label: string;
+    className: string;
+    action: () => void;
+  }
+
+  type EntriesObject = { [key: string]: BPMN.MenuEntry };
 }
 
 declare module 'bpmn-js/lib/Viewer' {
@@ -245,7 +255,7 @@ declare module 'bpmn-js/lib/draw/BpmnRenderer' {
     constructor(config: any, eventBus: BPMN.EventBus, styles: any, pathMap: any, canvas: any, textRenderer: any, priority: number);
 
     drawShape(visuals: any, element: BPMN.DiElement): SVGElement;
-    drawConnection(visuals: any, element: BPMN.DiElement): SVGElement;
+    drawConnection(visuals: any, element: BPMN.Connection): SVGElement;
   }
 }
 
@@ -254,8 +264,9 @@ declare module 'bpmn-js/lib/features/popup-menu/ReplaceMenuProvider' {
   export default class BpmnReplaceMenuProvider {
     constructor(popupMenu: any, modeling: any, moddle: BPMN.ModdleElement, bpmnReplace: any, rules: any, translate: any);
 
-    _createMenuEntry(definition: any, element: BPMN.DiElement, action: any): any;
-    _createEntries(element: BPMN.DiElement, replaceOptions: any): any;
+    getEntries(element: BPMN.DiElement): BPMN.MenuEntry[];
+    getHeaderEntries(element: BPMN.DiElement): BPMN.MenuEntry[];
+    getPopupMenuEntries(element: BPMN.DiElement): ((entries: BPMN.EntriesObject) => BPMN.EntriesObject);
   }
 }
 

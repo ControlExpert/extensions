@@ -4,6 +4,7 @@ import { WorkflowEntity, WorkflowModel, WorkflowEntitiesDictionary, WorkflowMess
 import { TypeContext, ValueLine, EntityLine, LiteAutocompleteConfig, EnumCheckboxList } from '@framework/Lines'
 import { is, JavascriptMessage, toLite, ModifiableEntity, Lite, Entity } from '@framework/Signum.Entities'
 import { API } from '../WorkflowClient'
+import { IconName, IconProp, IconPrefix } from "@fortawesome/fontawesome-svg-core";
 import BpmnModelerComponent from '../Bpmn/BpmnModelerComponent'
 import MessageModal from "@framework/Modals/MessageModal";
 import CollapsableCard from '../../Basics/Templates/CollapsableCard';

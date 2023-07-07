@@ -35,7 +35,7 @@ namespace Signum.Engine.Authorization
 
         public UserPrincipal GetUserPrincipal() //https://stackoverflow.com/questions/14278274/how-i-get-active-directory-user-properties-with-system-directoryservices-account
         {
-            return userPrincipal ?? (userPrincipal = UserPrincipal.FindByIdentity(PrincipalContext, UserName));
+            return userPrincipal ?? (userPrincipal = UserPrincipal.FindByIdentity(PrincipalContext, DomainName + @"\" + UserName));
         }
     }
 
@@ -93,9 +93,9 @@ namespace Signum.Engine.Authorization
                 {
                     try
                     {
-                        using (PrincipalContext pc = new PrincipalContext(ContextType.Domain, domainName))
+                        using (PrincipalContext pc = new PrincipalContext(ContextType.Domain, domainName, localName, password))
                         {
-                            if (pc.ValidateCredentials(localName + "@" + domainName, password))
+                            if (pc.ValidateCredentials(localName + "@" + domainName, password, ContextOptions.Negotiate))
                             {
                                 UserEntity? user = AuthLogic.RetrieveUser(userName);
 
@@ -103,6 +103,7 @@ namespace Signum.Engine.Authorization
                                 {
                                     user = OnAutoCreateUser(new DirectoryServiceAutoCreateUserContext(pc, localName, domainName!));
                                 }
+
 
                                 if (user != null)
                                 {
@@ -126,7 +127,7 @@ namespace Signum.Engine.Authorization
             }
         }
 
-        public UserEntity? OnAutoCreateUser(IAutoCreateUserContext ctx)
+        public virtual UserEntity? OnAutoCreateUser(IAutoCreateUserContext ctx)
         {
             if (!GetConfig().AutoCreateUsers)
                 return null;
@@ -155,7 +156,7 @@ namespace Signum.Engine.Authorization
                 State = UserState.Saved,
             };
 
-            if(ctx is AzureClaimsAutoCreateUserContext ac)
+            if (ctx is AzureClaimsAutoCreateUserContext ac)
             {
                 var mixin = result.TryMixin<UserOIDMixin>();
                 if (mixin != null)

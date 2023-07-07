@@ -5,7 +5,7 @@ import { ajaxPost, ajaxGet, ValidationError } from '@framework/Services';
 import { EntitySettings } from '@framework/Navigator'
 import * as DynamicClientOptions from '../Dynamic/DynamicClientOptions';
 import {
-  EntityPack, Lite, toLite, newMListElement, Entity, ExecuteSymbol, isEntityPack, isEntity
+  EntityPack, Lite, toLite, newMListElement, Entity, ExecuteSymbol, isEntityPack, isEntity, liteKey
 } from '@framework/Signum.Entities'
 import * as OmniboxClient from '../Omnibox/OmniboxClient'
 import { TypeEntity, IUserEntity } from '@framework/Signum.Entities.Basics'
@@ -224,7 +224,8 @@ export function start(options: { routes: JSX.Element[], overrideCaseActivityMixi
         return [{
           order: s?.order ?? 0,
           shortcut: e => eoc.onKeyDown(e),
-          button: <OperationButton eoc={eoc} group={group} />,
+          button: wa.customNextButton == null ? <OperationButton eoc={eoc} group={group} />
+            : <OperationButton eoc={eoc} group={group} color={wa.customNextButton.style.toLowerCase() as BsColor}>{wa.customNextButton.name} </OperationButton>
         }];
       } else if (wa.type == "Decision") {
         return wa.decisionOptions.map(mle => ({
@@ -239,11 +240,13 @@ export function start(options: { routes: JSX.Element[], overrideCaseActivityMixi
     contextual: 
     {
       settersConfig: coc => "NoDialog",
+      isVisible: ctx => true,
       createMenuItems: coc => {
         const wa = coc.pack!.entity.workflowActivity as WorkflowActivityEntity;
         if (wa.type == "Task") {
 
-          return [<OperationMenuItem coc={coc} />];
+          return [wa.customNextButton == null ? <OperationMenuItem coc={coc} />
+            : <OperationMenuItem coc={coc} color={wa.customNextButton.style.toLowerCase() as BsColor}>{wa.customNextButton.name}</OperationMenuItem>];
 
         } else if (wa.type == "Decision") {
           return wa.decisionOptions.map(mle => <OperationMenuItem coc={coc} onOperationClick={() => coc.defaultContextualClick(mle.element.name)} color={mle.element.style.toLowerCase() as BsColor}>{mle.element.name}</OperationMenuItem>);
@@ -314,12 +317,12 @@ export function start(options: { routes: JSX.Element[], overrideCaseActivityMixi
   Navigator.addSettings(new EntitySettings(WorkflowEventModel, w => import('./Workflow/WorkflowEventModel')));
   Navigator.addSettings(new EntitySettings(WorkflowEventTaskEntity, w => import('./Workflow/WorkflowEventTask')));
 
-  Constructor.registerConstructor(WorkflowEntity, () => WorkflowEntity.New({ mainEntityStrategies: [newMListElement(WorkflowMainEntityStrategy.value("CreateNew"))] }));
-  Constructor.registerConstructor(WorkflowConditionEntity, () => WorkflowConditionEntity.New({ eval: WorkflowConditionEval.New() }));
-  Constructor.registerConstructor(WorkflowTimerConditionEntity, () => WorkflowTimerConditionEntity.New({ eval: WorkflowTimerConditionEval.New() }));
-  Constructor.registerConstructor(WorkflowActionEntity, () => WorkflowActionEntity.New({ eval: WorkflowActionEval.New() }));
-  Constructor.registerConstructor(WorkflowScriptEntity, () => WorkflowScriptEntity.New({ eval: WorkflowScriptEval.New() }));
-  Constructor.registerConstructor(WorkflowTimerEmbedded, () => Constructor.construct(TimeSpanEmbedded).then(ts => ts && WorkflowTimerEmbedded.New({ duration: ts })));
+  Constructor.registerConstructor(WorkflowEntity, props => WorkflowEntity.New({ mainEntityStrategies: [newMListElement(WorkflowMainEntityStrategy.value("CreateNew"))], ...props }));
+  Constructor.registerConstructor(WorkflowConditionEntity, props => WorkflowConditionEntity.New({ eval: WorkflowConditionEval.New(), ...props }));
+  Constructor.registerConstructor(WorkflowTimerConditionEntity, props => WorkflowTimerConditionEntity.New({ eval: WorkflowTimerConditionEval.New(), ...props }));
+  Constructor.registerConstructor(WorkflowActionEntity, props => WorkflowActionEntity.New({ eval: WorkflowActionEval.New(), ...props }));
+  Constructor.registerConstructor(WorkflowScriptEntity, props => WorkflowScriptEntity.New({ eval: WorkflowScriptEval.New(), ...props }));
+  Constructor.registerConstructor(WorkflowTimerEmbedded, props => Constructor.construct(TimeSpanEmbedded).then(ts => ts && WorkflowTimerEmbedded.New({ duration: ts, ...props })));
 
   registerCustomContexts();
 
@@ -364,6 +367,10 @@ function chooseWorkflowExpirationDate(workflows: Lite<WorkflowEntity>[]): Promis
 export function workflowActivityMonitorUrl
   (workflow: Lite<WorkflowEntity>) {
   return `~/workflow/activityMonitor/${workflow.id}`;
+}
+
+export function workflowStartUrl(lite: Lite<WorkflowEntity>, entity?: Lite<Entity>) {
+  return "~/workflow/new/" + lite.id + "/CreateNew";
 }
 
 function registerCustomContexts() {

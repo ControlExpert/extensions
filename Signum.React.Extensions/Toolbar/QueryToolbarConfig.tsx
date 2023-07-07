@@ -6,18 +6,14 @@ import * as AppContext from '@framework/AppContext'
 import { QueryEntity } from '@framework/Signum.Entities.Basics'
 import { ToolbarConfig, ToolbarResponse } from './ToolbarClient'
 import { ValueSearchControl, FindOptions } from '@framework/Search';
-import { parseIcon } from '../Dashboard/Admin/Dashboard';
 import { coalesceIcon } from '@framework/Operations/ContextualOperations';
 import { useInterval } from '@framework/Hooks'
+import { parseIcon } from '../Basics/Templates/IconTypeahead'
 
 export default class QueryToolbarConfig extends ToolbarConfig<QueryEntity> {
   constructor() {
     var type = QueryEntity;
     super(type);
-  }
-
-  getLabel(res: ToolbarResponse<QueryEntity>) {
-    return res.label ?? getQueryNiceName(res.content!.toStr!);
   }
 
   getIcon(element: ToolbarResponse<QueryEntity>) {

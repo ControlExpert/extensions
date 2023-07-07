@@ -63,9 +63,7 @@ namespace Signum.Entities.Omnibox
         {
             pattern = pattern.RemoveDiacritics();
 
-#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
-            if (values.TryGetValue(pattern, out T val) && filter(val))
-#pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
+            if (values.TryGetValue(pattern, out T? val) && filter(val))
             {
                 yield return new OmniboxMatch(val!, 0, pattern, new string('#', pattern.Length));
             }

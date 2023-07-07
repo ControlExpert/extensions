@@ -9,12 +9,12 @@ import { TranslationMessage } from '../Signum.Entities.Translation'
 import { RouteComponentProps } from "react-router";
 import "../Translation.css"
 import { useAPI, useForceUpdate, useAPIWithReload, useLock } from '@framework/Hooks'
-import { EntityLink } from '../../../../Framework/Signum.React/Scripts/Search'
+import { EntityLink } from '@framework/Search'
 import { DiffDocumentSimple } from '../../DiffLog/Templates/DiffDocument'
-import TextArea from '../../../../Framework/Signum.React/Scripts/Components/TextArea'
-import { KeyCodes } from '../../../../Framework/Signum.React/Scripts/Components'
+import TextArea from '@framework/Components/TextArea'
+import { KeyCodes } from '@framework/Components'
 import { getTypeInfo } from '@framework/Reflection'
-import { useTitle } from '../../../../Framework/Signum.React/Scripts/AppContext'
+import { useTitle } from '@framework/AppContext'
 import { CultureInfoEntity } from '../../Basics/Signum.Entities.Basics'
 import { TranslationMember, initialElementIf } from '../Code/TranslationTypeTable'
 import { Lite } from '@framework/Signum.Entities'
@@ -76,15 +76,25 @@ export default function TranslatedInstanceSync(p: RouteComponentProps<{ type: st
 
   useTitle(message);
 
+  if (result && result.totalInstances == 0) {
+    return (
+      <div>
+        <div className="mb-2">
+          <h2> {TranslationMessage._0AlreadySynchronized.niceToString(getTypeInfo(type).niceName)}</h2>
+        </div>
+        {result && result.totalInstances == 0 && <Link to={`~/translatedInstance/status`}>
+          {TranslationMessage.BackToTranslationStatus.niceToString()}
+        </Link>}
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="mb-2">
-        <h2>{message}</h2>
+        <h2><Link to="~/translatedInstance/status">{TranslationMessage.InstanceTranslations.niceToString()}</Link> {">"} {message}</h2>
       </div>
       {result && result.totalInstances > 0 && renderTable()}
-      {result && result.totalInstances == 0 && <Link to={`~/translatedInstance/status`}>
-        {TranslationMessage.BackToTranslationStatus.niceToString()}
-      </Link>}
     </div>
   );
 }
@@ -153,7 +163,7 @@ export function TranslatedInstances(p: { data: TypeInstancesChanges, cultures: {
                         <tr key={c}>
                           <td className="leftCell">{c}</td>
                           <td className="monospaceCell">
-                            {rc.diff ? <DiffDocumentSimple diff={rc.diff} /> : <pre>{rc.original}</pre>}
+                            {rc.diff ? <DiffDocumentSimple diff={rc.diff} /> : <pre className="mb-0">{rc.original}</pre>}
                           </td>
                         </tr>
                       );
@@ -203,7 +213,10 @@ export function TranslationProperty({ property }: { property: PropertyChange }) 
     }
   }
 
-  if (Dic.getKeys(property.support).length == 0 || avoidCombo)
+  var translations = Object.entries(property.support)
+    .flatMap(([c, rc]) => rc.automaticTranslations.map(at => ({ culture: c, text: at.text, translatorName: at.translatorName })));
+
+  if (translations.length == 0 || avoidCombo)
     return (
       <TextArea style={{ height: "24px", width: "90%" }} minHeight="24px" value={property.translatedText ?? ""}
         onChange={e => { property.translatedText = e.currentTarget.value; forceUpdate(); }}
@@ -215,7 +228,7 @@ export function TranslationProperty({ property }: { property: PropertyChange }) 
     <span>
       <select value={property.translatedText ?? ""} onChange={handleOnChange} onKeyDown={handleKeyDown}>
         {initialElementIf(property.translatedText == undefined).concat(
-          Object.entries(property.support).map(([c, rc]) => <option key={c} value={rc.automaticTranslation}>{rc.automaticTranslation}</option>))}
+          translations.map(a => <option key={a.culture + a.translatorName} title={`from '${a.culture}' using ${a.translatorName}`} value={a.text}>{a.text}</option>))}
       </select>
         &nbsp;
       <a href="#" onClick={handleAvoidCombo}>{TranslationMessage.Edit.niceToString()}</a>
