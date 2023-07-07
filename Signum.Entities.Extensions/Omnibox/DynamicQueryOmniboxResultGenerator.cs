@@ -9,11 +9,10 @@ using Signum.Utilities.DataStructures;
 using Signum.Entities.UserAssets;
 using System.Text.Json.Serialization;
 using System.Text.Json;
-using System.Collections.Immutable;
 
 namespace Signum.Entities.Omnibox
 {
-    public class DynamicQueryOmniboxResultGenerator :OmniboxResultGenerator<DynamicQueryOmniboxResult>
+    public class DynamicQueryOmniboxResultGenerator : OmniboxResultGenerator<DynamicQueryOmniboxResult>
     {
         private static List<FilterSyntax> SyntaxSequence(Match m)
         {
@@ -256,7 +255,7 @@ namespace Signum.Entities.Omnibox
                     {
                         var error = Lite.TryParseLite(omniboxToken.Value, out Lite<Entity>? lite);
                         if (string.IsNullOrEmpty(error))
-                            return new []{new ValueTuple { Value = lite }};
+                            return new[] { new ValueTuple { Value = lite } };
                     }
                     else if (omniboxToken.Type == OmniboxTokenType.Number)
                     {
@@ -267,12 +266,13 @@ namespace Signum.Entities.Omnibox
                             return imp.Types.Select(t => CreateLite(t, omniboxToken.Value))
                                 .NotNull().Select(t => new ValueTuple { Value = t }).ToArray();
                         }
-                    }break;
+                    }
+                    break;
                 case FilterType.Embedded:
                 case FilterType.Boolean:
                     bool? boolean = ParseBool(omniboxToken.Value);
                     if (boolean.HasValue)
-                        return new []{ new ValueTuple{ Value = boolean.Value} };
+                        return new[] { new ValueTuple { Value = boolean.Value } };
                     break;
                 case FilterType.Enum:
                     if (omniboxToken.Type == OmniboxTokenType.String ||
@@ -431,7 +431,7 @@ namespace Signum.Entities.Omnibox
         }
 
         public float Distance { get; set; }
-        public FilterSyntax? Syntax  {get; set;}
+        public FilterSyntax? Syntax { get; set; }
 
         [JsonConverter(typeof(QueryTokenJsonConverter))]
         public QueryToken QueryToken { get; set; }
