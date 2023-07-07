@@ -12,8 +12,8 @@ import { Type } from '@framework/Reflection'
 import { ToolbarEntity, ToolbarMenuEntity, ToolbarElementEmbedded, ToolbarElementType, ToolbarLocation } from './Signum.Entities.Toolbar'
 import * as Constructor from '@framework/Constructor'
 import * as UserAssetClient from '../UserAssets/UserAssetClient'
-import { parseIcon } from '../Dashboard/Admin/Dashboard';
 import { ValueSearchControl } from '@framework/Search';
+import { parseIcon } from '../Basics/Templates/IconTypeahead';
 
 export function start(options: { routes: JSX.Element[] }, ...configs: ToolbarConfig<any>[]) {
   Navigator.addSettings(new EntitySettings(ToolbarEntity, t => import('./Templates/Toolbar')));
@@ -45,10 +45,6 @@ export abstract class ToolbarConfig<T extends Entity> {
       return null;
 
     return <FontAwesomeIcon icon={icon} className={"icon"} color={color} />;
-  }
-
-  getLabel(element: ToolbarResponse<T>) {
-    return element.label ?? element.content!.toStr;
   }
 
   abstract navigateTo(element: ToolbarResponse<T>): Promise<string>;

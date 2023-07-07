@@ -5,15 +5,19 @@ using Signum.Engine.Dashboard;
 using Signum.Engine.DynamicQuery;
 using Signum.Engine.Maps;
 using Signum.Engine.Operations;
+using Signum.Engine.Translation;
 using Signum.Engine.UserAssets;
 using Signum.Engine.UserQueries;
+using Signum.Engine.Workflow;
 using Signum.Entities;
 using Signum.Entities.Authorization;
 using Signum.Entities.Basics;
 using Signum.Entities.Chart;
 using Signum.Entities.Dashboard;
+using Signum.Entities.DynamicQuery;
 using Signum.Entities.Toolbar;
 using Signum.Entities.UserQueries;
+using Signum.Entities.Workflow;
 using Signum.Utilities;
 using System;
 using System.Collections.Generic;
@@ -45,7 +49,6 @@ namespace Signum.Engine.Toolbar
                         e.Priority
                     });
 
-
                 sb.Include<ToolbarMenuEntity>()
                     .WithSave(ToolbarMenuOperation.Save)
                     .WithDelete(ToolbarMenuOperation.Delete)
@@ -64,6 +67,47 @@ namespace Signum.Engine.Toolbar
                 RegisterDelete<QueryEntity>(sb);
                 RegisterDelete<DashboardEntity>(sb);
                 RegisterDelete<ToolbarMenuEntity>(sb);
+                RegisterDelete<WorkflowEntity>(sb);
+
+                RegisterContentConfig<ToolbarMenuEntity>(
+                    lite => true,
+                    lite => TranslatedInstanceLogic.TranslatedField(ToolbarMenus.Value.GetOrCreate(lite), a => a.Name));
+
+                RegisterContentConfig<UserQueryEntity>(
+                    lite => { var uq = UserQueryLogic.UserQueries.Value.GetOrCreate(lite); return InMemoryFilter(uq) && QueryLogic.Queries.QueryAllowed(uq.Query.ToQueryName(), true); },
+                    lite => TranslatedInstanceLogic.TranslatedField(UserQueryLogic.UserQueries.Value.GetOrCreate(lite), a => a.DisplayName));
+
+                RegisterContentConfig<UserChartEntity>(
+                    lite => { var uc = UserChartLogic.UserCharts.Value.GetOrCreate(lite); return InMemoryFilter(uc) && QueryLogic.Queries.QueryAllowed(uc.Query.ToQueryName(), true); },
+                    lite => TranslatedInstanceLogic.TranslatedField(UserChartLogic.UserCharts.Value.GetOrCreate(lite), a => a.DisplayName));
+
+                RegisterContentConfig<QueryEntity>(
+                  lite => IsQueryAllowed(lite),
+                  lite => QueryUtils.GetNiceName(QueryLogic.QueryNames.GetOrThrow(lite.ToString()!)));
+
+                RegisterContentConfig<DashboardEntity>(
+                  lite => InMemoryFilter(DashboardLogic.Dashboards.Value.GetOrCreate(lite)),
+                  lite => TranslatedInstanceLogic.TranslatedField(DashboardLogic.Dashboards.Value.GetOrCreate(lite), a => a.DisplayName));
+
+                RegisterContentConfig<PermissionSymbol>(
+                    lite => PermissionAuthLogic.IsAuthorized(SymbolLogic< PermissionSymbol>.ToSymbol(lite.ToString()!)),
+                    lite => SymbolLogic<PermissionSymbol>.ToSymbol(lite.ToString()!).NiceToString());
+
+                RegisterContentConfig<WorkflowEntity>(
+                  lite => { var wf = WorkflowLogic.WorkflowGraphLazy.Value.GetOrCreate(lite); return InMemoryFilter(wf.Workflow) && wf.IsStartCurrentUser(); },
+                    lite => TranslatedInstanceLogic.TranslatedField(WorkflowLogic.WorkflowGraphLazy.Value.GetOrCreate(lite).Workflow, a => a.Name));
+
+
+                
+
+
+                //    { typeof(QueryEntity), a => IsQueryAllowed((Lite<QueryEntity>)a) },
+                //{ typeof(PermissionSymbol), a => PermissionAuthLogic.IsAuthorized((PermissionSymbol)a.RetrieveAndRemember()) },
+                //{ typeof(UserQueryEntity), a => ,
+                //{ typeof(UserChartEntity), a => { var uc = UserChartLogic.UserCharts.Value.GetOrCreate((Lite<UserChartEntity>)a); return InMemoryFilter(uc) && QueryLogic.Queries.QueryAllowed(uc.Query.ToQueryName(), true); } },
+                //{ typeof(DashboardEntity), a => InMemoryFilter(DashboardLogic.Dashboards.Value.GetOrCreate((Lite<DashboardEntity>)a)) },
+                //{ typeof(WorkflowEntity), a => { var wf = WorkflowLogic.WorkflowGraphLazy.Value.GetOrCreate((Lite<WorkflowEntity>)a); return InMemoryFilter(wf.Workflow) && wf.IsStartCurrentUser(); } },
+
 
                 Toolbars = sb.GlobalLazy(() => Database.Query<ToolbarEntity>().ToDictionary(a => a.ToLite()),
                    new InvalidateWith(typeof(ToolbarEntity)));
@@ -140,6 +184,14 @@ namespace Signum.Engine.Toolbar
             }
         }
 
+        public static void RegisterTranslatableRoutes()
+        {
+            TranslatedInstanceLogic.AddRoute((ToolbarEntity tb) => tb.Name);
+            TranslatedInstanceLogic.AddRoute((ToolbarEntity tb) => tb.Elements[0].Label);
+            TranslatedInstanceLogic.AddRoute((ToolbarMenuEntity tm) => tm.Name);
+            TranslatedInstanceLogic.AddRoute((ToolbarMenuEntity tb) => tb.Elements[0].Label);
+        }
+
         public static ToolbarEntity? GetCurrent(ToolbarLocation location)
         {
             var isAllowed = Schema.Current.GetInMemoryFilter<ToolbarEntity>(userInterface: false);
@@ -159,7 +211,7 @@ namespace Signum.Engine.Toolbar
             if (curr == null)
                 return null;
 
-            var responses = ToResponseList(curr.Elements);
+            var responses = ToResponseList(TranslatedInstanceLogic.TranslatedMList(curr, c => c.Elements).ToList());
 
             if (responses.Count == 0)
                 return null;
@@ -168,12 +220,12 @@ namespace Signum.Engine.Toolbar
             {
                 type = ToolbarElementType.Header,
                 content = curr.ToLite(),
-                label = curr.Name,
+                label = TranslatedInstanceLogic.TranslatedField(curr, a => a.Name),
                 elements = responses,
             };
         }
 
-        private static List<ToolbarResponse> ToResponseList(MList<ToolbarElementEmbedded> elements)
+        private static List<ToolbarResponse> ToResponseList(List<TranslatableElement<ToolbarElementEmbedded>> elements)
         {
             var result = elements.Select(a => ToResponse(a)).NotNull().ToList();
 
@@ -203,11 +255,15 @@ namespace Signum.Engine.Toolbar
             return tr.type == ToolbarElementType.Header && tr.content == null && string.IsNullOrEmpty(tr.url);
         }
 
-        private static ToolbarResponse? ToResponse(ToolbarElementEmbedded element)
+        private static ToolbarResponse? ToResponse(TranslatableElement<ToolbarElementEmbedded> transElement)
         {
-            if (element.Content != null && !(element.Content is Lite<ToolbarMenuEntity>))
+            var element = transElement.Value;
+
+            var config = element.Content == null ? null : ContentCondigDictionary.GetOrThrow(element.Content.EntityType);
+
+            if(config != null)
             {
-                if (!IsAuthorized(element.Content))
+                if (!config.IsAuhorized(element.Content!))
                     return null;
             }
 
@@ -216,7 +272,7 @@ namespace Signum.Engine.Toolbar
                 type = element.Type,
                 content = element.Content,
                 url = element.Url,
-                label = element.Label,
+                label = transElement.TranslatedElement(a => a.Label!).DefaultText(null) ?? config?.DefaultLabel(element.Content!),
                 iconName = element.IconName,
                 iconColor = element.IconColor,
                 autoRefreshPeriod = element.AutoRefreshPeriod,
@@ -226,7 +282,7 @@ namespace Signum.Engine.Toolbar
             if (element.Content is Lite<ToolbarMenuEntity>)
             {
                 var tme = ToolbarMenus.Value.GetOrThrow((Lite<ToolbarMenuEntity>)element.Content);
-                result.elements = ToResponseList(tme.Elements);
+                result.elements = ToResponseList(TranslatedInstanceLogic.TranslatedMList(tme, t => t.Elements).ToList());
                 if (result.elements.Count == 0)
                     return null;
             }
@@ -234,19 +290,34 @@ namespace Signum.Engine.Toolbar
             return result;
         }
 
-        public static void RegisterIsAuthorized<T>(Func<Lite<Entity>, bool> isAuthorized) where T : Entity
+        public static void RegisterContentConfig<T>(Func<Lite<T>, bool> isAuthorized, Func<Lite<T>, string> defaultLabel) 
+            where T : Entity
         {
-            IsAuthorizedDictionary.Add(typeof(T), isAuthorized);
+            ContentCondigDictionary.Add(typeof(T), new ContentConfig<T>(isAuthorized, defaultLabel));
         }
 
-        static Dictionary<Type, Func<Lite<Entity>, bool>> IsAuthorizedDictionary = new Dictionary<Type, Func<Lite<Entity>, bool>>
+        static Dictionary<Type, IContentConfig> ContentCondigDictionary = new Dictionary<Type, IContentConfig>();
+
+        public interface IContentConfig
         {
-            { typeof(QueryEntity), a => IsQueryAllowed((Lite<QueryEntity>)a) },
-            { typeof(PermissionSymbol), a => PermissionAuthLogic.IsAuthorized((PermissionSymbol)a.RetrieveAndRemember()) },
-            { typeof(UserQueryEntity), a => { var uq = UserQueryLogic.UserQueries.Value.GetOrCreate((Lite<UserQueryEntity>)a); return InMemoryFilter(uq) && QueryLogic.Queries.QueryAllowed(uq.Query.ToQueryName(), true); } },
-            { typeof(UserChartEntity), a => { var uc = UserChartLogic.UserCharts.Value.GetOrCreate((Lite<UserChartEntity>)a); return InMemoryFilter(uc) && QueryLogic.Queries.QueryAllowed(uc.Query.ToQueryName(), true); } },
-            { typeof(DashboardEntity), a => InMemoryFilter(DashboardLogic.Dashboards.Value.GetOrCreate((Lite<DashboardEntity>)a)) },
-        };
+            bool IsAuhorized(Lite<Entity> lite);
+            string DefaultLabel(Lite<Entity> lite);
+        }
+
+        public class ContentConfig<T> : IContentConfig where T : Entity
+        {
+            public Func<Lite<T>, bool> IsAuthorized;
+            public Func<Lite<T>, string> DefaultLabel;
+
+            public ContentConfig(Func<Lite<T>, bool> isAuthorized, Func<Lite<T>, string> defaultLabel)
+            {
+                IsAuthorized = isAuthorized;
+                DefaultLabel = defaultLabel;
+            }
+
+            bool IContentConfig.IsAuhorized(Lite<Entity> lite) => IsAuthorized((Lite<T>)lite);
+            string IContentConfig.DefaultLabel(Lite<Entity> lite) => DefaultLabel((Lite<T>)lite);
+        }
 
         static bool IsQueryAllowed(Lite<QueryEntity> query)
         {
@@ -272,10 +343,6 @@ namespace Signum.Engine.Toolbar
             return isAllowed(entity);
         }
 
-        public static bool IsAuthorized(Lite<Entity> lite)
-        {
-            return IsAuthorizedDictionary.GetOrThrow(lite.EntityType)(lite);
-        }
     }
 
     public class ToolbarResponse

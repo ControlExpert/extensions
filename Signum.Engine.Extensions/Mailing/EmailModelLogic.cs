@@ -14,6 +14,7 @@ using Signum.Utilities.ExpressionTrees;
 using Signum.Entities.Isolation;
 using Signum.Entities.Templating;
 using Signum.Engine.UserAssets;
+using Signum.Engine.Authorization;
 
 namespace Signum.Engine.Mailing
 {
@@ -161,7 +162,7 @@ namespace Signum.Engine.Mailing
 
                 new Graph<EmailTemplateEntity>.ConstructFrom<EmailModelEntity>(EmailTemplateOperation.CreateEmailTemplateFromModel)
                 {
-                    Construct = (se, _) => CreateDefaultTemplate(se)
+                    Construct = (se, _) => CreateDefaultTemplateInternal(se)
                 }.Register();
 
                 EmailModelToTemplates = sb.GlobalLazy(() => (
@@ -293,45 +294,48 @@ namespace Signum.Engine.Mailing
             using (IsolationEntity.Override((emailModel.UntypedEntity as Entity)?.TryIsolation()))
             {
                 var emailModelEntity = ToEmailModelEntity(emailModel.GetType());
-                var template = GetDefaultTemplate(emailModelEntity, emailModel.UntypedEntity as Entity);
+                var template = GetCurrentTemplate(emailModelEntity, emailModel.UntypedEntity as Entity);
 
                 return EmailTemplateLogic.CreateEmailMessage(template.ToLite(), model: emailModel);
             }
         }
 
-        public static EmailTemplateEntity GetDefaultTemplate<M>() where M : IEmailModel
+        public static EmailTemplateEntity GetCurrentTemplate<M>() where M : IEmailModel
         {
             var emailModelEntity = ToEmailModelEntity(typeof(M));
 
-            return GetDefaultTemplate(emailModelEntity, null);
+            return GetCurrentTemplate(emailModelEntity, null);
         }
 
 
-        private static EmailTemplateEntity GetDefaultTemplate(EmailModelEntity emailModelEntity, Entity? entity)
+        private static EmailTemplateEntity GetCurrentTemplate(EmailModelEntity emailModelEntity, Entity? entity)
         {
             var isAllowed = Schema.Current.GetInMemoryFilter<EmailTemplateEntity>(userInterface: false);
 
             var templates = EmailModelToTemplates.Value.TryGetC(emailModelEntity.ToLite()).EmptyIfNull();
-            
-            if (templates.IsNullOrEmpty())
-            {
-                using (ExecutionMode.Global())
-                using (OperationLogic.AllowSave<EmailTemplateEntity>())
-                using (Transaction tr = Transaction.ForceNew())
-                {
-                    var template = CreateDefaultTemplate(emailModelEntity);
-
-                    template.Save();
-
-                    return tr.Commit(template);
-                }
-            }
-
             templates = templates.Where(isAllowed);
+
+            if (templates.IsNullOrEmpty())
+                return CreateDefaultEmailTemplate(emailModelEntity);
+         
             return templates.Where(t => t.IsApplicable(entity)).SingleEx(() => "Active EmailTemplates for EmailModel {0}".FormatWith(emailModelEntity));
         }
 
-        internal static EmailTemplateEntity CreateDefaultTemplate(EmailModelEntity emailModel)
+        public static EmailTemplateEntity CreateDefaultEmailTemplate(EmailModelEntity emailModelEntity)
+        {
+            using (AuthLogic.Disable())
+            using (OperationLogic.AllowSave<EmailTemplateEntity>())
+            using (Transaction tr = Transaction.ForceNew())
+            {
+                var template = CreateDefaultTemplateInternal(emailModelEntity);
+
+                template.Save();
+
+                return tr.Commit(template);
+            }
+        }
+
+        internal static EmailTemplateEntity CreateDefaultTemplateInternal(EmailModelEntity emailModel)
         {
             EmailModelInfo info = registeredModels.GetOrThrow(entityToType.Value.GetOrThrow(emailModel));
 
@@ -339,7 +343,7 @@ namespace Signum.Engine.Mailing
                 throw new InvalidOperationException($"No EmailTemplate for {emailModel} found and DefaultTemplateConstructor = null");
 
             EmailTemplateEntity template = info.DefaultTemplateConstructor.Invoke();
-            if (template.MasterTemplate != null)
+            if (template.MasterTemplate == null)
                 template.MasterTemplate = EmailMasterTemplateLogic.GetDefaultMasterTemplate();
 
             if (template.Name == null)
@@ -364,7 +368,7 @@ namespace Signum.Engine.Mailing
 
                 if (template == null)
                 {
-                    template = CreateDefaultTemplate(emailModelEntity);
+                    template = CreateDefaultTemplateInternal(emailModelEntity);
 
                     using (ExecutionMode.Global())
                     using (OperationLogic.AllowSave<EmailTemplateEntity>())

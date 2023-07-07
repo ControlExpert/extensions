@@ -352,11 +352,24 @@ namespace Signum.Engine.Word
         protected internal override void RenderNode(WordTemplateParameters p)
         {
             object? obj = ValueProvider.GetValue(p);
-            string? text = obj is Enum en ? en.NiceToString() :
-                obj is bool b ? (b ? BooleanEnum.True.NiceToString() : BooleanEnum.False.NiceToString()) :
-                obj is TimeSpan ts ? ts.ToString(Format?.Replace(":", @"\:") ?? ValueProvider.Format, p.Culture) :
-                obj is IFormattable fo ? fo.ToString(Format ?? ValueProvider.Format, p.Culture) :
-                obj?.ToString();
+
+            string? text;
+            
+            switch (obj)
+            {
+                case Enum e:
+                    text = e.NiceToString();
+                    break;
+                case bool b:
+                    text = b ? BooleanEnum.True.NiceToString() : BooleanEnum.False.NiceToString();
+                    break;
+                case IFormattable f:
+                    text = f.ToString(Format ?? ValueProvider.Format, p.Culture);
+                    break;
+                default:
+                    text = obj?.ToString();
+                    break;
+            }
             
             if (text != null && text.Contains('\n'))
             {

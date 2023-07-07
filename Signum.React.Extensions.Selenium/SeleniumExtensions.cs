@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -288,6 +289,7 @@ namespace Signum.React.Selenium
                 case "By.CssSelector": return after;
                 case "By.Id": return "#" + after;
                 case "By.Name": return "[name=" + after + "]";
+                case "By.ClassName[Contains]": return "." + after;
                 default: throw new InvalidOperationException("Impossible to combine: " + str);
             }
         }
@@ -330,7 +332,7 @@ namespace Signum.React.Selenium
 
         public static IWebElement GetParent(this IWebElement e)
         {
-            return e.FindElement(By.XPath(".."));
+            return e.FindElement(By.XPath("./.."));
         }
 
         public static IWebElement GetAscendant(this IWebElement e, Func<IWebElement, bool> predicate)
@@ -395,9 +397,12 @@ namespace Signum.React.Selenium
             new Actions(element.GetDriver()).MoveToElement(element).Perform();
             while(element.GetAttribute("value").Length > 0)
                 element.SendKeys(Keys.Backspace);
-            element.SendKeys(text);
+
+            if (text.HasText())
+                element.SendKeys(text);
+    
             Thread.Sleep(0);
-            element.GetDriver().Wait(() => element.GetAttribute("value") == text);
+            element.GetDriver().Wait(() => element.GetAttribute("value") == (text ?? ""));
         }
 
         public static string Value(this IWebElement e) => e.GetAttribute("value");
@@ -429,19 +434,16 @@ namespace Signum.React.Selenium
 
         public static void SafeClick(this IWebElement element)
         {
-            if (!element.Displayed || element.Location.Y < 150)//Nav
-            {
-                element.ScrollTo();
-            }
-
+            element.ScrollTo();
             element.Click();
         }
 
-        public static void ScrollTo(this IWebElement element)
+        public static IWebElement ScrollTo(this IWebElement element)
         {
             IJavaScriptExecutor js = (IJavaScriptExecutor)element.GetDriver();
             js.ExecuteScript("arguments[0].scrollIntoView(false);", element);
             Thread.Sleep(500);
+            return element;
         }
 
         public static void LoseFocus(this IWebElement element)

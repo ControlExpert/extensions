@@ -512,9 +512,9 @@ export module Decoder {
   const valuesInOrder = Finder.Decoder.valuesInOrder;
 
   export function decodeColumns(query: any): MList<ChartColumnEmbedded> {
-    return valuesInOrder(query, "column").map(val => {
+    return valuesInOrder(query, "column").map(p => {
 
-      var parts = val.split("~");
+      var parts = p.value.split("~");
 
       let order: string | undefined;
       let token: string;
@@ -542,11 +542,11 @@ export module Decoder {
   }
 
   export function decodeParameters(query: any): MList<ChartParameterEmbedded> {
-    return valuesInOrder(query, "param").map(val => ({
+    return valuesInOrder(query, "param").map(p => ({
       rowId: null,
       element: ChartParameterEmbedded.New({
-        name: unscapeTildes(val.before("~")),
-        value: unscapeTildes(val.after("~")),
+        name: unscapeTildes(p.value.before("~")),
+        value: unscapeTildes(p.value.after("~")),
       })
     }));
   }
@@ -639,9 +639,7 @@ export module API {
     if (token.filterType == "DateTime")
       return v => {
         var date = v as string | null;
-        var format = chartColumn.format ? toLuxonFormat(chartColumn.format) :
-          token.format ? toLuxonFormat(token.format) :
-            "F";
+        var format = toLuxonFormat(chartColumn.format || token.format, token.type.name as "Date" | "DateTime");
         return date == null ? String(null) : DateTime.fromISO(date).toFormatFixed(format);
       };
 

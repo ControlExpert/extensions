@@ -44,6 +44,13 @@ export interface BpmnEntityPairEmbedded extends Entities.EmbeddedEntity {
   bpmnElementId: string;
 }
 
+export const ButtonOptionEmbedded = new Type<ButtonOptionEmbedded>("ButtonOptionEmbedded");
+export interface ButtonOptionEmbedded extends Entities.EmbeddedEntity {
+  Type: "ButtonOptionEmbedded";
+  name: string;
+  style: Signum.BootstrapStyle;
+}
+
 export const CaseActivityEntity = new Type<CaseActivityEntity>("CaseActivity");
 export interface CaseActivityEntity extends Entities.Entity {
   Type: "CaseActivity";
@@ -95,6 +102,8 @@ export module CaseActivityMessage {
   export const ThereAreInprogressActivities = new MessageKey("CaseActivityMessage", "ThereAreInprogressActivities");
   export const ShowHelp = new MessageKey("CaseActivityMessage", "ShowHelp");
   export const HideHelp = new MessageKey("CaseActivityMessage", "HideHelp");
+  export const CanceledCase = new MessageKey("CaseActivityMessage", "CanceledCase");
+  export const AlreadyFinished = new MessageKey("CaseActivityMessage", "AlreadyFinished");
 }
 
 export const CaseActivityMixin = new Type<CaseActivityMixin>("CaseActivityMixin");
@@ -180,6 +189,7 @@ export type CaseNotificationState =
 
 export module CaseOperation {
   export const SetTags : Entities.ExecuteSymbol<CaseEntity> = registerSymbol("Operation", "CaseOperation.SetTags");
+  export const Cancel : Entities.ExecuteSymbol<CaseEntity> = registerSymbol("Operation", "CaseOperation.Cancel");
 }
 
 export const CaseTagEntity = new Type<CaseTagEntity>("CaseTag");
@@ -222,13 +232,6 @@ export type DateFilterRange =
   "LastWeek" |
   "LastMonth" |
   "CurrentYear";
-
-export const DecisionOptionEmbedded = new Type<DecisionOptionEmbedded>("DecisionOptionEmbedded");
-export interface DecisionOptionEmbedded extends Entities.EmbeddedEntity {
-  Type: "DecisionOptionEmbedded";
-  name: string;
-  style: Signum.BootstrapStyle;
-}
 
 export const DoneType = new EnumType<DoneType>("DoneType");
 export type DoneType =
@@ -338,7 +341,8 @@ export interface WorkflowActivityEntity extends Entities.Entity, IWorkflowNodeEn
   type: WorkflowActivityType;
   comments: string | null;
   requiresOpen: boolean;
-  decisionOptions: Entities.MList<DecisionOptionEmbedded>;
+  decisionOptions: Entities.MList<ButtonOptionEmbedded>;
+  customNextButton: ButtonOptionEmbedded | null;
   boundaryTimers: Entities.MList<WorkflowEventEntity>;
   estimatedDuration: number | null;
   viewName: string | null;
@@ -359,6 +363,8 @@ export module WorkflowActivityMessage {
   export const InprogressWorkflowActivities = new MessageKey("WorkflowActivityMessage", "InprogressWorkflowActivities");
   export const OpenCaseActivityStats = new MessageKey("WorkflowActivityMessage", "OpenCaseActivityStats");
   export const LocateWorkflowActivityInDiagram = new MessageKey("WorkflowActivityMessage", "LocateWorkflowActivityInDiagram");
+  export const Approve = new MessageKey("WorkflowActivityMessage", "Approve");
+  export const Decline = new MessageKey("WorkflowActivityMessage", "Decline");
 }
 
 export const WorkflowActivityModel = new Type<WorkflowActivityModel>("WorkflowActivityModel");
@@ -370,7 +376,8 @@ export interface WorkflowActivityModel extends Entities.ModelEntity {
   name: string;
   type: WorkflowActivityType;
   requiresOpen: boolean;
-  decisionOptions: Entities.MList<DecisionOptionEmbedded>;
+  decisionOptions: Entities.MList<ButtonOptionEmbedded>;
+  customNextButton: ButtonOptionEmbedded | null;
   boundaryTimers: Entities.MList<WorkflowEventModel>;
   estimatedDuration: number | null;
   script: WorkflowScriptPartEmbedded | null;
@@ -458,6 +465,7 @@ export interface WorkflowConnectionModel extends Entities.ModelEntity {
   condition: Entities.Lite<WorkflowConditionEntity> | null;
   action: Entities.Lite<WorkflowActionEntity> | null;
   order: number | null;
+  decisionOptions: Entities.MList<ButtonOptionEmbedded>;
 }
 
 export module WorkflowConnectionOperation {

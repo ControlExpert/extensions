@@ -47,7 +47,7 @@ namespace Signum.Engine.Authorization
                      isEquals: (o1, o2) => o1.Operation == o2.Operation && o1.Type == o2.Type,
                      merger: new OperationMerger(),
                      invalidateWithTypes: true,
-                     coercer:  OperationCoercer.Instance);
+                     coercer: OperationCoercer.Instance);
 
                 sb.Schema.EntityEvents<RoleEntity>().PreUnsafeDelete += query =>
                 {
@@ -74,7 +74,8 @@ namespace Signum.Engine.Authorization
                        TypeAuthCache.typeReplacementKey);
 
                     return cache.ImportXml(x, "Operations", "Operation", roles,
-                        s => {
+                        s =>
+                        {
                             var operation = SymbolLogic<OperationSymbol>.TryToSymbol(replacements.Apply(operationReplacementKey, s.Before("/")));
                             var type = TypeLogic.TryGetType(replacements.Apply(TypeAuthCache.typeReplacementKey, s.After("/")));
 
@@ -249,11 +250,11 @@ namespace Signum.Engine.Authorization
         public OperationAllowed Merge((OperationSymbol operation, Type type) operationType, Lite<RoleEntity> role, IEnumerable<KeyValuePair<Lite<RoleEntity>, OperationAllowed>> baseValues)
         {
             OperationAllowed best = AuthLogic.GetMergeStrategy(role) == MergeStrategy.Union ?
-                Max(baseValues.Select(a => a.Value)):
+                Max(baseValues.Select(a => a.Value)) :
                 Min(baseValues.Select(a => a.Value));
 
             if (!BasicPermission.AutomaticUpgradeOfOperations.IsAuthorized(role))
-               return best;
+                return best;
 
             var maxUp = OperationAuthLogic.MaxAutomaticUpgrade.TryGetS(operationType.Item1);
 

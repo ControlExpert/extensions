@@ -84,10 +84,8 @@ namespace Signum.Engine.Workflow
                     a.ViewNameProps.Select(vnp => new XElement("ViewNameProp", new XAttribute("Name", vnp.Name), new XCData(vnp.Expression!)))
                 ),
                 !a.DecisionOptions.Any() ? null! : new XElement("DecisionOptions", 
-                    a.DecisionOptions.Select(cdo => new XElement("DecisionOption",
-                    new XAttribute("Name", cdo.Name), 
-                    new XAttribute("Style", cdo.Style.ToString())))
-                ),
+                    a.DecisionOptions.Select(cdo => cdo.ToXml("DecisionOption"))),
+                a.CustomNextButton?.ToXml("CustomNextButton")!,
                 string.IsNullOrEmpty(a.UserHelp) ? null! : new XElement("UserHelp", new XCData(a.UserHelp)),
                 a.SubWorkflow == null ? null! : new XElement("SubWorkflow",
                     new XAttribute("Workflow", ctx.Include(a.SubWorkflow.Workflow)),
@@ -259,7 +257,7 @@ namespace Signum.Engine.Workflow
         {
             this.workflow.Name = element.Attribute("Name")!.Value;
             this.workflow.MainEntityType = ctx.GetType(element.Attribute("MainEntityType")!.Value);
-            this.workflow.MainEntityStrategies.Synchronize(element.Attribute("MainEntityStrategies")!.Value.Split(",").Select(a => a.Trim().ToEnum<WorkflowMainEntityStrategy>()).ToList());
+            this.workflow.MainEntityStrategies.Synchronize(element.Attribute("MainEntityStrategies")!.Value.SplitNoEmpty(",").Select(a => a.Trim().ToEnum<WorkflowMainEntityStrategy>()).ToList());
             this.workflow.ExpirationDate = element.Attribute("ExpirationDate")?.Let(ed => DateTime.ParseExact(ed.Value, "o", CultureInfo.InvariantCulture));
 
             if(!ctx.IsPreview)
@@ -307,8 +305,11 @@ namespace Signum.Engine.Workflow
                         });
                         activity.DecisionOptions.Synchronize(xml.Element("DecisionOptions")?.Elements("DecisionOption").ToList(), (cdoe, elem) =>
                         {
-                            cdoe.Name = elem.Attribute("Name")!.Value;
-                            cdoe.Style = Enum.Parse<BootstrapStyle>(elem.Attribute("Style")!.Value);
+                            cdoe.FromXml(elem);
+                        });
+                        activity.CustomNextButton = activity.CustomNextButton.CreateOrAssignEmbedded(xml.Element("CustomNextButton"), (cnb, elem) =>
+                        {
+                            cnb.FromXml(elem);
                         });
                         activity.UserHelp = xml.Element("UserHelp")?.Value;
                         activity.SubWorkflow = activity.SubWorkflow.CreateOrAssignEmbedded(xml.Element("SubWorkflow"), (swe, elem) =>
@@ -335,9 +336,9 @@ namespace Signum.Engine.Workflow
                             ev.Timer = ev.Timer.CreateOrAssignEmbedded(xml.Element("Timer"), (time, xml) =>
                             {
                                 time.Duration = time.Duration.CreateOrAssignEmbedded(xml.Element("Duration"), (ts, xml) => ts.FromXml(xml));
-                                time.Condition = xml.Attribute("Condition")?.Let(a => ((WorkflowTimerConditionEntity)ctx.GetEntity((Guid)a)).ToLite());
+                                time.Condition = xml.Attribute("Condition")?.Let(a => ((WorkflowTimerConditionEntity)ctx.GetEntity((Guid)a)).ToLiteFat());
                             });
-                            ev.BoundaryOf = xml.Attribute("BoundaryOf")?.Let(a =>activities.GetOrThrow(a.Value).ToLite());
+                            ev.BoundaryOf = xml.Attribute("BoundaryOf")?.Let(a =>activities.GetOrThrow(a.Value).ToLiteFat());
 
                             SetXmlDiagram(ev, xml);
                         }))
@@ -359,8 +360,8 @@ namespace Signum.Engine.Workflow
                                     conn.Type = xml.Attribute("Type")!.Value.ToEnum<ConnectionType>();
                                     conn.From = GetNode(xml.Attribute("From")!.Value);
                                     conn.To = GetNode(xml.Attribute("To")!.Value);
-                                    conn.Condition = xml.Attribute("Condition")?.Let(a => ((WorkflowConditionEntity)ctx.GetEntity((Guid)a)).ToLite());
-                                    conn.Action = xml.Attribute("Action")?.Let(a => ((WorkflowActionEntity)ctx.GetEntity((Guid)a)).ToLite());
+                                    conn.Condition = xml.Attribute("Condition")?.Let(a => ((WorkflowConditionEntity)ctx.GetEntity((Guid)a)).ToLiteFat());
+                                    conn.Action = xml.Attribute("Action")?.Let(a => ((WorkflowActionEntity)ctx.GetEntity((Guid)a)).ToLiteFat());
                                     conn.Order = (int?)xml.Attribute("Order");
                                     SetXmlDiagram(conn, xml);
                                 }))

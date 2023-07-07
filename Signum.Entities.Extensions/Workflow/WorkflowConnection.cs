@@ -126,6 +126,8 @@ namespace Signum.Entities.Workflow
 
         public int? Order { get; set; }
 
+        public MList<ButtonOptionEmbedded> DecisionOptions { get; set; } = new MList<ButtonOptionEmbedded>();
+
         protected override string? PropertyValidation(PropertyInfo pi)
         {
             if(pi.Name == nameof(DecisionOptionName) && DecisionOptionName == null && Type == ConnectionType.Decision)

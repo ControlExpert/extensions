@@ -167,7 +167,7 @@ namespace Signum.Entities.MachineLearning
         public double? Loss { get; set; }
 
         [Format("F4")]
-        public double? Evaluation { get; set; }
+        public double? Accuracy { get; set; }
     }
 
     [Serializable]
@@ -378,9 +378,9 @@ namespace Signum.Entities.MachineLearning
 
         protected override string? PropertyValidation(PropertyInfo pi)
         {
-            stateValidator.Validate(this, pi);
 
-            return base.PropertyValidation(pi);
+
+            return stateValidator.Validate(this, pi) ?? base.PropertyValidation(pi);
         }
 
         public static StateValidator<PredictorSubQueryColumnEmbedded, PredictorSubQueryColumnUsage> stateValidator =
@@ -487,9 +487,9 @@ namespace Signum.Entities.MachineLearning
     }
 
     [AutoInit]
-    public static class CNTKPredictorAlgorithm
+    public static class TensorFlowPredictorAlgorithm
     {
-        public static PredictorAlgorithmSymbol NeuralNetwork;
+        public static PredictorAlgorithmSymbol NeuralNetworkGraph;
     }
 
     [AutoInit]

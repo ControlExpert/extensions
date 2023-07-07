@@ -13,7 +13,6 @@ namespace Signum.Entities.Workflow
     [Serializable, EntityKind(EntityKind.System, EntityData.Transactional), InTypeScript(Undefined = false)]
     public class CaseActivityEntity : Entity
     {
-        
         public CaseEntity Case { get; set; }
         
         [ImplementedBy(typeof(WorkflowActivityEntity), typeof(WorkflowEventEntity))]
@@ -169,6 +168,8 @@ namespace Signum.Entities.Workflow
         ThereAreInprogressActivities,
         ShowHelp,
         HideHelp,
+        CanceledCase,
+        AlreadyFinished
     }
 
 

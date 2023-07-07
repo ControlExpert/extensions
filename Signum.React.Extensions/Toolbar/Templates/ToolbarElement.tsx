@@ -3,7 +3,7 @@ import { ValueLine, EntityLine } from '@framework/Lines'
 import { TypeContext } from '@framework/TypeContext'
 import { ToolbarElementEmbedded } from '../Signum.Entities.Toolbar'
 import { ColorTypeaheadLine } from '../../Basics/Templates/ColorTypeahead'
-import { IconTypeaheadLine } from '../../Basics/Templates/IconTypeahead'
+import { IconTypeaheadLine, parseIcon } from '../../Basics/Templates/IconTypeahead'
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import * as Dashboard from '../../Dashboard/Admin/Dashboard'
 import { PermissionSymbol } from '../../Authorization/Signum.Entities.Authorization';
@@ -34,7 +34,7 @@ export default function ToolbarElement(p: { ctx: TypeContext<ToolbarElementEmbed
 
   var content = ctx2.value.content;
 
-  var icon = Dashboard.parseIcon(ctx4.value.iconName);
+  var icon = parseIcon(ctx4.value.iconName);
 
   return (
     <div>
@@ -54,10 +54,10 @@ export default function ToolbarElement(p: { ctx: TypeContext<ToolbarElementEmbed
             <ColorTypeaheadLine ctx={ctx4.subCtx(t => t.iconColor)} onChange={() => forceUpdate()} />
           </div>
           <div className="col-sm-1">
-            {icon && <FontAwesomeIcon icon={icon} style={{ backgroundColor: bgColor, color: ctx4.value.iconColor ?? undefined, fontSize: "25px", marginTop: "17px" }} />}
+            {icon && <FontAwesomeIcon icon={icon} style={{ backgroundColor: bgColor, color: ctx4.value.iconColor || undefined, fontSize: "25px", marginTop: "17px" }} />}
           </div>
           <div className="col-sm-5">
-            <ValueLine ctx={ctx2.subCtx(t => t.label)} valueHtmlAttributes={{ placeholder: content?.toStr ?? undefined }} />
+          <ValueLine ctx={ctx2.subCtx(t => t.label)} valueHtmlAttributes={{ placeholder: content?.toStr || undefined }} />
             {(ctx2.value.type == "Header" || ctx2.value.type == "Item") && (ctx2.value.content == null || PermissionSymbol.isLite(ctx2.value.content)) && <ValueLine ctx={ctx2.subCtx(t => t.url)} />}
             {content && (content.EntityType == "UserQuery" || content.EntityType == "Query") &&
               <div>
