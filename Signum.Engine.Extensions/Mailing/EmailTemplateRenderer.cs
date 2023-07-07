@@ -49,14 +49,7 @@ namespace Signum.Engine.Mailing
             {
                 foreach (List<EmailOwnerRecipientData> recipients in GetRecipients())
                 {
-                    CultureInfo ci = EmailTemplateLogic.GetCultureInfo != null
-                        ? EmailTemplateLogic.GetCultureInfo(entity ?? systemEmail.UntypedEntity as Entity)
-                        : recipients
-                              .Where(a => a.Kind == EmailRecipientKind.To)
-                              .Select(a => a.OwnerData.CultureInfo)
-                              .FirstOrDefault()
-                              .ToCultureInfo()
-                          ?? EmailLogic.Configuration.DefaultCulture.ToCultureInfo();
+                    EmailMessageEntity email = CreateEmailMessageInternal(from, recipients);
 
                     yield return email;
                 }
@@ -68,9 +61,14 @@ namespace Signum.Engine.Mailing
             EmailMessageEntity email;
             try
             {
-                CultureInfo ci = this.cultureInfo ??
-                    recipients.Where(a => a.Kind == EmailRecipientKind.To).Select(a => a.OwnerData.CultureInfo).FirstOrDefault()?.ToCultureInfo() ??
-                    EmailLogic.Configuration.DefaultCulture.ToCultureInfo();
+                CultureInfo ci = EmailTemplateLogic.GetCultureInfo != null
+                    ? EmailTemplateLogic.GetCultureInfo(entity ?? model?.UntypedEntity as Entity)
+                    : recipients
+                          .Where(a => a.Kind == EmailRecipientKind.To)
+                          .Select(a => a.OwnerData.CultureInfo)
+                          .FirstOrDefault()?
+                          .ToCultureInfo()
+                      ?? EmailLogic.Configuration.DefaultCulture.ToCultureInfo();
 
                 email = new EmailMessageEntity
                 {
@@ -164,7 +162,7 @@ namespace Signum.Engine.Mailing
 
                     var groupsWithEmail = groups.Where(a => a.Key.Email.HasText()).ToList();
 
-                    if(groupsWithEmail.IsEmpty())
+                    if (groupsWithEmail.IsEmpty())
                     {
                         switch (template.From.WhenNone)
                         {
@@ -190,7 +188,7 @@ namespace Signum.Engine.Mailing
                     {
                         if (template.From.WhenMany == WhenManyFromBehaviour.FistResult)
                             groupsWithEmail = groupsWithEmail.Take(1).ToList();
-                    
+
                         foreach (var gr in groupsWithEmail)
                         {
                             var old = currentRows;
