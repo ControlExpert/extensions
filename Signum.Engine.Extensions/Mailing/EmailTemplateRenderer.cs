@@ -61,9 +61,11 @@ namespace Signum.Engine.Mailing
             EmailMessageEntity email;
             try
             {
-                CultureInfo ci = this.cultureInfo ??
-                    recipients.Where(a => a.Kind == EmailRecipientKind.To).Select(a => a.OwnerData.CultureInfo).FirstOrDefault()?.ToCultureInfo() ??
-                    EmailLogic.Configuration.DefaultCulture.ToCultureInfo();
+                var ci = EmailTemplateLogic.GetCultureInfo != null
+                    ? EmailTemplateLogic.GetCultureInfo(entity ?? model?.UntypedEntity as Entity)
+                    : this.cultureInfo ?? 
+                        recipients.Where(a => a.Kind == EmailRecipientKind.To).Select(a => a.OwnerData.CultureInfo).FirstOrDefault()?.ToCultureInfo() ??
+                        EmailLogic.Configuration.DefaultCulture.ToCultureInfo();
 
                 email = new EmailMessageEntity
                 {
