@@ -2,12 +2,12 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>
-    <LangVersion>preview</LangVersion>
+    <LangVersion>8.0</LangVersion>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Platforms>x64;x86;AnyCPU</Platforms>
-    <NoWarn>NU1605</NoWarn>
+    <NoWarn>NU1605;8618</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
