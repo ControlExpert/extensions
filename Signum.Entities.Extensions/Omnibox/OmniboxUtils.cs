@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Signum.Utilities;
@@ -72,7 +72,7 @@ namespace Signum.Entities.Omnibox
                     OmniboxMatch? result;
                     if (isPascalCase)
                     {
-                        result = SubsequencePascal(kvp.Value, kvp.Key, pattern);
+                        result = SubsequencePascal(kvp.Value!, kvp.Key, pattern);
 
                         if (result != null)
                         {
@@ -81,7 +81,7 @@ namespace Signum.Entities.Omnibox
                         }
                     }
 
-                    result = Contains(kvp.Value, kvp.Key, pattern);
+                    result = Contains(kvp.Value!, kvp.Key, pattern);
                     if (result != null)
                     {
                         yield return result;

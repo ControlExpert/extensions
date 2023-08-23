@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>
     <RootNamespace>Signum.Entities</RootNamespace>
-    <LangVersion>preview</LangVersion>
+    <LangVersion>8.0</LangVersion>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -11,7 +11,7 @@
   </PropertyGroup>
   
   <PropertyGroup>
-    <NoWarn>1701;1702;8618;NU1605</NoWarn>
+    <NoWarn>1701;1702;8618;NU1605;IDE0073</NoWarn>
   </PropertyGroup>
   
   <ItemGroup>

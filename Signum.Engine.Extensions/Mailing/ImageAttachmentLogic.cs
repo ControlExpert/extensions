@@ -1,4 +1,4 @@
-using Signum.Engine.DynamicQuery;
+﻿using Signum.Engine.DynamicQuery;
 using Signum.Engine.Maps;
 using Signum.Engine.Templating;
 using Signum.Entities;
@@ -39,7 +39,7 @@ namespace Signum.Engine.Mailing
             {
                 using (CultureInfoUtils.ChangeBothCultures(ctx.Culture))
                 {
-                    var fileName = string.IsNullOrEmpty(a.FileName) ? a.File.FileName : GetTemplateString(a.FileName, ref a.FileNameNode, ctx);
+                    var fileName = string.IsNullOrEmpty(a.FileName) ? a.File.FileName : GetTemplateString(a.FileName!, ref a.FileNameNode, ctx);
                     
                     return new List<EmailAttachmentEmbedded>
                     {

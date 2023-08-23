@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Signum.Entities.DynamicQuery;
@@ -444,7 +444,7 @@ namespace Signum.Entities.UserAssets
             if (string.IsNullOrEmpty(value))
                 return null;
 
-            string? error = Lite.TryParseLite(value, out Lite<Entity>? lite);
+            string? error = Lite.TryParseLite(value!, out Lite<Entity>? lite);
             if (error == null)
                 return new Result<object?>.Success(lite);
             else

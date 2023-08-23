@@ -1,4 +1,4 @@
-using Signum.Engine.Basics;
+﻿using Signum.Engine.Basics;
 using Signum.Engine.Cache;
 using Signum.Engine.DynamicQuery;
 using Signum.Engine.Maps;
@@ -833,14 +833,14 @@ namespace Signum.Engine.Dynamic
                 if (this.IsTreeEntity)
                 {
                     sb.AppendLine("Graph<{0}Entity>.Construct.Untyped(TreeOperation.CreateRoot).Do(g => ".FormatWith(this.TypeName));
-                    sb.AppendLine("    g.Construct = (args) => {\r\n" + operationConstruct.Indent(8) + "\r\n}");
+                    sb.AppendLine("    g.Construct = (args) => {\r\n" + operationConstruct!.Indent(8) + "\r\n}");
                     sb.AppendLine(").Register(replace: true);");
                 }
                 else
                 {
                     sb.AppendLine("new Graph<{0}Entity>.Construct({0}Operation.Create)".FormatWith(this.TypeName));
                     sb.AppendLine("{");
-                    sb.AppendLine("    Construct = (args) => {\r\n" + operationConstruct.Indent(8) + "\r\n}");
+                    sb.AppendLine("    Construct = (args) => {\r\n" + operationConstruct!.Indent(8) + "\r\n}");
                     sb.AppendLine("}.Register();");
                 }
             }

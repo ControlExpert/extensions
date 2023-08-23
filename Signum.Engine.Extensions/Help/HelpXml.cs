@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -92,7 +92,7 @@ namespace Signum.Engine.Help
                 if (string.IsNullOrEmpty(result))
                     throw new InvalidOperationException("{0} does not have a {1} attribute".FormatWith(fileName, _Name));
 
-                return result;
+                return result!;
             }
 
             public static ImportAction Load(XDocument document, Dictionary<string, string> namespaces)
@@ -332,7 +332,7 @@ namespace Signum.Engine.Help
                 if (string.IsNullOrEmpty(result))
                     throw new InvalidOperationException("{0} does not have a {1} attribute".FormatWith(fileName, _FullName));
 
-                return result;
+                return result!;
             }
         }
 

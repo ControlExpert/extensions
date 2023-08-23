@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Signum.Engine.Maps;
@@ -558,7 +558,7 @@ namespace Signum.Engine.Cache
 
                 return ids.Select(id => retriever.Complete<T>(id, e => this.Complete(e, retriever))!).ToList();
             }
-#pragma warning enable CS8631
+#pragma warning disable CS8631
 
             public Type Type
             {

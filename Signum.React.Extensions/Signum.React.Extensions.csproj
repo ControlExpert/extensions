@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <NoWarn>1701;1702;8618;NU1605</NoWarn>
+    <NoWarn>1701;1702;8618;NU1605;IDE0073</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Platform)'=='win64'">
