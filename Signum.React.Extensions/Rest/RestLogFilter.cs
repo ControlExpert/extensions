@@ -60,7 +60,7 @@ namespace Signum.React.RestLog
                         //actionContext.Request.Properties[SignumAuthenticationFilterAttribute.SavedRequestKey] : null)
                 };
 
-                context.HttpContext.Items.Add(typeof(RestLogEntity).FullName, restLog);
+                context.HttpContext.Items.Add(typeof(RestLogEntity).FullName!, restLog);
 
             }
             catch (Exception e)
@@ -93,7 +93,7 @@ namespace Signum.React.RestLog
         {
             if(context.Exception != null)
             {
-                var request = (RestLogEntity)context.HttpContext.Items.GetOrThrow(typeof(RestLogEntity).FullName);
+                var request = (RestLogEntity)context.HttpContext.Items.GetOrThrow(typeof(RestLogEntity).FullName!);
                 var originalStream = (Stream)context.HttpContext.Items.GetOrThrow(OriginalResponseStreamKey);
                 request.EndDate = TimeZoneManager.Now;
                 request.Exception = context.Exception.LogException()?.ToLite();
@@ -111,7 +111,7 @@ namespace Signum.React.RestLog
         {
             try
             {
-                var request = (RestLogEntity)context.HttpContext.Items.GetOrThrow(typeof(RestLogEntity).FullName);
+                var request = (RestLogEntity)context.HttpContext.Items.GetOrThrow(typeof(RestLogEntity).FullName!);
                 request.EndDate = TimeZoneManager.Now;
 
                 Stream memoryStream = RestoreOriginalStream(context);
