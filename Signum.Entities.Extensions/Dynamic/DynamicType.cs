@@ -35,9 +35,9 @@ namespace Signum.Entities.Dynamic
 
         [Ignore]
         DynamicTypeDefinition? definition;
-        public DynamicTypeDefinition? GetDefinition()
+        public DynamicTypeDefinition GetDefinition()
         {
-            return definition ?? JsonConvert.DeserializeObject<DynamicTypeDefinition>(TypeDefinition);
+            return definition ?? JsonConvert.DeserializeObject<DynamicTypeDefinition>(TypeDefinition)!;
         }
 
         public void SetDefinition(DynamicTypeDefinition definition)
@@ -332,7 +332,7 @@ namespace Signum.Entities.Dynamic
         public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
         {
             JObject obj = JObject.Load(reader);
-            var type = DynamicValidator.GetDynamicValidatorType(obj.Property("type")!.Value.Value<string>());
+            var type = DynamicValidator.GetDynamicValidatorType(obj.Property("type")!.Value.Value<string>()!);
 
             object target = Activator.CreateInstance(type)!;
             serializer.Populate(obj.CreateReader(), target);
@@ -353,7 +353,7 @@ namespace Signum.Entities.Dynamic
         [JsonProperty(PropertyName = "type")]
         public string Type;
 
-        public static Type GetDynamicValidatorType(string? type)
+        public static Type GetDynamicValidatorType(string type)
         {
             switch (type)
             {
