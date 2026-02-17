@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -47,7 +46,7 @@ namespace Signum.Entities.Dynamic
 
         [Ignore]
         DynamicTypeDefinition? definition;
-        public DynamicTypeDefinition GetDefinition()
+        public DynamicTypeDefinition? GetDefinition()
         {
             return definition ?? (definition = JsonSerializer.Deserialize<DynamicTypeDefinition>(this.TypeDefinition, settings))!;
         }
@@ -62,9 +61,9 @@ namespace Signum.Entities.Dynamic
         {
             if (pi.Name == nameof(TypeDefinition))
             {
-                var def = this.GetDefinition();
+                var def = GetDefinition();
 
-                return def.Properties
+                return def?.Properties
                     .Where(p => p.Name.HasText() && !IdentifierValidatorAttribute.PascalAscii.IsMatch(p.Name))
                     .Select(p => ValidationMessage._0DoesNotHaveAValid1IdentifierFormat.NiceToString(p.Name, IdentifierType.PascalAscii))
                     .ToString("\r\n")
@@ -298,7 +297,7 @@ namespace Signum.Entities.Dynamic
     {
         public string Type;
 
-        public static Type GetDynamicValidatorType(string type)
+        public static Type GetDynamicValidatorType(string? type)
         {
             switch (type)
             {
