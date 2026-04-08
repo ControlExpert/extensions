@@ -426,7 +426,15 @@ namespace Signum.Engine.Processes
                             });
                         }
 
-                        executingProcess.ProgressChanged(j++, totalCount, status);
+                        if (StatusInterceptor != null)
+                        {
+                            var interceptedStatus = StatusInterceptor(null);
+                            executingProcess.ProgressChanged(j++, totalCount, interceptedStatus ?? executingProcess.CurrentProcess.Status);
+                        }
+                        else
+                        {
+                            executingProcess.ProgressChanged(j++, totalCount, status);
+                        }
                     }
                 }
 
@@ -464,11 +472,23 @@ namespace Signum.Engine.Processes
             }
         }
 
+        [ThreadStatic]
+        public static Func<string, string> StatusInterceptor;
+
         public static void WriteLineColor(this ExecutingProcess ep, ConsoleColor color, string s)
         {
             if (ep != null)
             {
-                ep.WriteMessage(s);
+                if (StatusInterceptor != null)
+                {
+                    var status = StatusInterceptor(s);
+                    if (status != null)
+                        ep.ProgressChanged(ep.CurrentProcess.Progress ?? 0m, status);
+                }
+                else
+                {
+                    ep.WriteMessage(s);
+                }
             }
             else
             {
