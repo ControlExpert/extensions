@@ -120,8 +120,9 @@ namespace Signum.Entities.Files
 
         public static string SafeCombine(string safeBaseDirectory, string unsafeSufix)
         {
-            if (!safeBaseDirectory.EndsWith("\\"))
-                safeBaseDirectory = safeBaseDirectory + "\\";
+            var sep = Path.DirectorySeparatorChar.ToString();
+            if (!safeBaseDirectory.EndsWith(sep) && !safeBaseDirectory.EndsWith("\\"))
+                safeBaseDirectory = safeBaseDirectory + sep;
 
             safeBaseDirectory = Path.GetFullPath(safeBaseDirectory);
 
