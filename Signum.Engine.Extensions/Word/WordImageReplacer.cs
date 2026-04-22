@@ -1,4 +1,4 @@
-using DocumentFormat.OpenXml;
+﻿using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Drawing.Wordprocessing;
 using DocumentFormat.OpenXml.Packaging;
@@ -52,22 +52,22 @@ namespace Signum.Engine.Word
 
             if (adaptSize && !AvoidAdaptSize)
             {
-                Array.ForEach(bitmaps, bitmap =>
+                for (int j = 0; j < bitmaps.Length; j++)
                 {
-                    var part = doc.MainDocumentPart.GetPartById(blips.First().Embed);
+                    var part = doc.MainDocumentPart.GetPartById(blips[j].Embed);
 
                     using (var stream = part.GetStream())
                     {
                         Bitmap oldBmp = (Bitmap)Bitmap.FromStream(stream);
-                        bitmap = ImageResizer.Resize(bitmap, oldBmp.Width, oldBmp.Height);
+                        bitmaps[j] = ImageResizer.Resize(bitmaps[j], oldBmp.Width, oldBmp.Height);
                     }
-                });
+                }
             }
 
             doc.MainDocumentPart.DeletePart(blips.First().Embed);
 
-            var i = 0;
-            var bitmapStack = new Stack<Bitmap>(bitmaps.Reverse());
+            int i = 0;
+            var bitmapStack = new Stack<Bitmap>(bitmaps.AsEnumerable().Reverse());
             foreach (var blip in blips)
             {
                 ImagePart img = CreateImagePart(doc, bitmapStack.Pop(), newImagePartId + i, imagePartType);
@@ -132,18 +132,14 @@ namespace Signum.Engine.Word
 
         static Blip[] FindAllBlips(WordprocessingDocument doc, string titleOrDescription)
         {
-            var i = 0;
-            var drawing = doc.MainDocumentPart.Document.Descendants().OfType<Drawing>().Where(r =>
+            var drawingList = doc.MainDocumentPart.Document.Descendants().OfType<Drawing>().Where(r =>
             {
                 var prop = r.Descendants<DocProperties>().SingleOrDefault();
                 var match = prop != null && (prop.Title == titleOrDescription || prop.Description == titleOrDescription);
-                prop.Title += i;
-                i++;
-
                 return match;
-            });
+            }).ToList();
 
-            return drawing.Select(d => d.Descendants<Blip>().SingleEx()).ToArray();
+            return drawingList.Select(d => d.Descendants<Blip>().SingleEx()).ToArray();
         }
     }
 
