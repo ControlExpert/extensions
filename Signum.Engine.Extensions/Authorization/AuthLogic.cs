@@ -309,7 +309,7 @@ namespace Signum.Engine.Authorization
                 if (user == null)
                     throw new IncorrectUsernameException(LoginAuthMessage.Username0IsNotValid.NiceToString().FormatWith(username));
 
-                using (UserHolder.UserSession(SystemUser))
+                using (UserHolder.UserSession(SystemUser!))
                 {
                     if (!passwordHashes.Any(passwordHash => passwordHash.SequenceEqual(user.PasswordHash)))
                     {

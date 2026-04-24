@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using Signum.React.Facades;
 using Signum.Entities.Translation;
 using Microsoft.AspNetCore.Builder;

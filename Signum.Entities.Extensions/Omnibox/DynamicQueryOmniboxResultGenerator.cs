@@ -104,10 +104,10 @@ namespace Signum.Entities.Omnibox
 
             int operatorIndex = syntax.Index + syntax.TokenLength;
 
-            List<(QueryToken token, ImmutableStack<OmniboxMatch> stack)> ambiguousTokens = GetAmbiguousTokens(null, ImmutableStack<OmniboxMatch>.Empty,
+            List<(QueryToken token, Signum.Utilities.DataStructures.ImmutableStack<OmniboxMatch> stack)> ambiguousTokens = GetAmbiguousTokens(null, Signum.Utilities.DataStructures.ImmutableStack<OmniboxMatch>.Empty,
                 queryDescription, tokens, syntax.Index, operatorIndex).ToList();
 
-            foreach ((QueryToken token, ImmutableStack<OmniboxMatch> stack) pair in ambiguousTokens)
+            foreach ((QueryToken token, Signum.Utilities.DataStructures.ImmutableStack<OmniboxMatch> stack) pair in ambiguousTokens)
             {
                 var distance = pair.stack.Sum(a => a.Distance);
                 var tokenMatches = pair.stack.Reverse().ToArray();
@@ -331,7 +331,7 @@ namespace Signum.Entities.Omnibox
             return null;
         }
 
-        protected virtual IEnumerable<(QueryToken token, ImmutableStack<OmniboxMatch> stack)> GetAmbiguousTokens(QueryToken? queryToken, ImmutableStack<OmniboxMatch> distancePack,
+        protected virtual IEnumerable<(QueryToken token, Signum.Utilities.DataStructures.ImmutableStack<OmniboxMatch> stack)> GetAmbiguousTokens(QueryToken? queryToken, Signum.Utilities.DataStructures.ImmutableStack<OmniboxMatch> distancePack,
             QueryDescription queryDescription, List<OmniboxToken> omniboxTokens, int index, int operatorIndex)
         {
             OmniboxToken omniboxToken = omniboxTokens[index];

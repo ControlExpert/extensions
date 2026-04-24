@@ -180,11 +180,11 @@ namespace Signum.Engine.Authorization
                     .ToList();
         }
 
-        static readonly Variable<ImmutableStack<OperationSymbol>> tempAllowed = Statics.ThreadVariable<ImmutableStack<OperationSymbol>>("authTempOperationsAllowed");
+        static readonly Variable<Signum.Utilities.DataStructures.ImmutableStack<OperationSymbol>> tempAllowed = Statics.ThreadVariable<Signum.Utilities.DataStructures.ImmutableStack<OperationSymbol>>("authTempOperationsAllowed");
 
         public static IDisposable AllowTemporally(OperationSymbol operationKey)
         {
-            tempAllowed.Value = (tempAllowed.Value ?? ImmutableStack<OperationSymbol>.Empty).Push(operationKey);
+            tempAllowed.Value = (tempAllowed.Value ?? Signum.Utilities.DataStructures.ImmutableStack<OperationSymbol>.Empty).Push(operationKey);
 
             return new Disposable(() => tempAllowed.Value = tempAllowed.Value.Pop());
         }

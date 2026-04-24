@@ -82,7 +82,7 @@ namespace Signum.Engine.Dynamic
 
                         var def = e.GetDefinition();
                         var result = new DynamicTypeEntity { TypeName = null!, BaseType = e.BaseType };
-                        result.SetDefinition(def);
+                        result.SetDefinition(def!);
                         return result;
                     },
                 }.Register();
@@ -93,7 +93,7 @@ namespace Signum.Engine.Dynamic
                     CanBeModified = true,
                     Execute = (e, _) =>
                     {
-                        var newDef = e.GetDefinition();
+                        var newDef = e.GetDefinition()!;
                         var duplicatePropertyNames = newDef.Properties
                                 .GroupToDictionary(a => a.Name.ToLower())
                                 .Where(a => a.Value.Count() > 1)
@@ -111,7 +111,7 @@ namespace Signum.Engine.Dynamic
                             if (e.BaseType == DynamicBaseType.ModelEntity)
                                 return;
 
-                            var oldDef = old.GetDefinition();
+                            var oldDef = old.GetDefinition()!;
                             var newName = GetTableName(e, newDef);
                             var oldName = GetTableName(old, oldDef);
 
@@ -204,7 +204,7 @@ namespace Signum.Engine.Dynamic
 
             var entities =  types.Select(dt =>
             {
-                var def = dt.GetDefinition();
+                var def = dt.GetDefinition()!;
 
                 var dcg = new DynamicTypeCodeGenerator(DynamicCode.CodeGenEntitiesNamespace, dt.TypeName, dt.BaseType, def, DynamicCode.Namespaces);
 
@@ -215,7 +215,7 @@ namespace Signum.Engine.Dynamic
 
             var logics = types.Select(dt =>
             {
-                var def = dt.GetDefinition();
+                var def = dt.GetDefinition()!;
 
                 var dlg = new DynamicTypeLogicGenerator(DynamicCode.CodeGenEntitiesNamespace, dt.TypeName, dt.BaseType, def, DynamicCode.Namespaces)
                 {
@@ -228,7 +228,7 @@ namespace Signum.Engine.Dynamic
             }).ToList();
             result.AddRange(logics);
 
-            var bs = new DynamicBeforeSchemaGenerator(DynamicCode.CodeGenEntitiesNamespace, types.Select(a => a.GetDefinition().CustomBeforeSchema).NotNull().ToList(), DynamicCode.Namespaces);
+            var bs = new DynamicBeforeSchemaGenerator(DynamicCode.CodeGenEntitiesNamespace, types.Select(a => a.GetDefinition()!.CustomBeforeSchema).NotNull().ToList(), DynamicCode.Namespaces);
             result.Add(new CodeFile("CodeGenBeforeSchema.cs", bs.GetFileCode()));
 
             return result;
