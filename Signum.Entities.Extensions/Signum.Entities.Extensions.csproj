@@ -5,8 +5,7 @@
     <RootNamespace>Signum.Entities</RootNamespace>
     <Nullable>enable</Nullable>
     <WarningsAsErrors>nullable</WarningsAsErrors>
-    <Platforms>x64;x86;AnyCPU</Platforms>
-    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <Platforms>AnyCPU</Platforms>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <NoWarn>8618</NoWarn>
   </PropertyGroup>
