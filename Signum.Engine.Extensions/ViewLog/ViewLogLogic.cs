@@ -110,17 +110,22 @@ namespace Signum.Engine.ViewLog
             {
                 try
                 {
-                    Task.Run(() =>
+                    // COM-8026: SuppressFlow prevents AsyncLocal<T> (used by ThreadVariable/Transaction) from
+                    // leaking into the background task, which would corrupt the caller's transaction dictionary.
+                    using (ExecutionContext.SuppressFlow())
                     {
-                        using (Transaction tr = Transaction.ForceNew())
+                        Task.Run(() =>
                         {
-                            viewLog.EndDate = TimeZoneManager.Now;
-                            viewLog.Data = new BigStringEmbedded(GetData(request!, sw));
-                            using (ExecutionMode.Global())
-                                viewLog.Save();
-                            tr.Commit();
-                        }
-                    });
+                            using (Transaction tr = Transaction.ForceNew())
+                            {
+                                viewLog.EndDate = TimeZoneManager.Now;
+                                viewLog.Data = new BigStringEmbedded(GetData(request!, sw));
+                                using (ExecutionMode.Global())
+                                    viewLog.Save();
+                                tr.Commit();
+                            }
+                        });
+                    }
                 }
                 finally
                 {
