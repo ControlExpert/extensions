@@ -14,6 +14,7 @@ using Signum.Engine.Json;
 using System.Text.Json;
 using Signum.Entities.UserQueries;
 using Signum.Entities;
+using Microsoft.AspNetCore.Http;
 
 namespace Signum.React.Translation
 {
@@ -24,7 +25,7 @@ namespace Signum.React.Translation
         public static void Start(IApplicationBuilder app, params ITranslator[] translators)
         {
             Translators = translators;
-            
+
             SignumControllerFactory.RegisterArea(MethodInfo.GetCurrentMethod());
 
             ReflectionServer.RegisterLike(typeof(TranslationMessage), () => TranslationPermission.TranslateCode.IsAuthorized() || TranslationPermission.TranslateInstances.IsAuthorized());

@@ -24,9 +24,9 @@ namespace Signum.Engine.ViewLog
         public static Func<DynamicQueryContainer.ExecuteType, object, BaseQueryRequest, IDisposable>? QueryExecutedLog;
 
         [AutoExpressionField]
-        public static IQueryable<ViewLogEntity> ViewLogs(this Entity a) => 
+        public static IQueryable<ViewLogEntity> ViewLogs(this Entity a) =>
             As.Expression(() => Database.Query<ViewLogEntity>().Where(log => log.Target.Is(a)));
-        
+
         [AutoExpressionField]
         public static ViewLogEntity? ViewLogMyLast(this Entity e) => As.Expression(() => e.ViewLogs()
             .Where(a => a.User.Is(UserEntity.Current))
@@ -80,7 +80,7 @@ namespace Signum.Engine.ViewLog
             return ViewLogLogic.LogView(entity.ToLite(), url);
         }
 
-  
+
         static SqlPreCommand Type_PreDeleteSqlSync(Entity arg)
         {
             var t = Schema.Current.Table<ViewLogEntity>();
@@ -110,22 +110,21 @@ namespace Signum.Engine.ViewLog
             {
                 try
                 {
-                    // COM-8026: SuppressFlow prevents AsyncLocal<T> (used by ThreadVariable/Transaction) from
-                    // leaking into the background task, which would corrupt the caller's transaction dictionary.
+                    var str = GetData(request!, sw);
+
                     using (ExecutionContext.SuppressFlow())
-                    {
-                        Task.Run(() =>
+                        Task.Factory.StartNew(() =>
                         {
+                            using (ExecutionMode.Global())
                             using (Transaction tr = Transaction.ForceNew())
                             {
                                 viewLog.EndDate = TimeZoneManager.Now;
-                                viewLog.Data = new BigStringEmbedded(GetData(request!, sw));
+                                viewLog.Data = new BigStringEmbedded(str);
                                 using (ExecutionMode.Global())
                                     viewLog.Save();
                                 tr.Commit();
                             }
                         });
-                    }
                 }
                 finally
                 {
@@ -170,7 +169,7 @@ namespace Signum.Engine.ViewLog
     public class DuplicateTextWriter : TextWriter
     {
         public TextWriter First;
-        public TextWriter Second; 
+        public TextWriter Second;
 
         public DuplicateTextWriter(TextWriter first, TextWriter second)
         {
