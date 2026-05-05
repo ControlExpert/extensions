@@ -9,7 +9,7 @@ import * as Finder from '@framework/Finder'
 import { Entity, Lite, liteKey } from '@framework/Signum.Entities'
 import * as Constructor from '@framework/Constructor'
 import * as QuickLinks from '@framework/QuickLinks'
-import { translated  } from '../Translation/TranslatedInstanceTools'
+import { translated } from '../Translation/TranslatedInstanceTools'
 import { FindOptionsParsed, FindOptions, OrderOption, ColumnOption, QueryRequest, Pagination, ResultRow } from '@framework/FindOptions'
 import * as AuthClient from '../Authorization/AuthClient'
 import {
@@ -152,8 +152,7 @@ export module Converter {
       fo.columnOptions = (uq.columns ?? []).map(f => ({
         token: f.element.token.tokenString,
         displayName: translated(f.element, c => c.displayName),
-        summaryToken: f.element.summaryToken?.tokenString,
-        hiddenColumn: f.element.hiddenColumn,
+        summaryToken: f.element.summaryToken?.tokenString
       }) as ColumnOption);
 
       fo.orderOptions = (uq.orders ?? []).map(f => ({
@@ -165,10 +164,10 @@ export module Converter {
       const qs = Finder.querySettings[query.key];
 
       fo.pagination = uq.paginationMode == undefined ? undefined : {
-          mode: uq.paginationMode,
-          currentPage: uq.paginationMode == "Paginate" ? 1 : undefined,
-          elementsPerPage: uq.paginationMode == "All" ? undefined : uq.elementsPerPage,
-        } as Pagination;
+        mode: uq.paginationMode,
+        currentPage: uq.paginationMode == "Paginate" ? 1 : undefined,
+        elementsPerPage: uq.paginationMode == "All" ? undefined : uq.elementsPerPage,
+      } as Pagination;
 
       return fo;
     });
