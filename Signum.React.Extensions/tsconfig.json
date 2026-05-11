@@ -8,6 +8,9 @@
     "noEmit": true,
     "strict": true,
     "baseUrl": ".",
+    "typeRoots": [
+      "./node_modules/@types"
+    ],
     "paths": {
       "*": [
         "../../Framework/Signum.React/node_modules/@types/*",
