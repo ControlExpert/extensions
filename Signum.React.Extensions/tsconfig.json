@@ -15,6 +15,7 @@
       "*": [
         "../../Framework/Signum.React/node_modules/@types/*",
         "../../Framework/Signum.React/node_modules/*",
+        "*",
       ],
       "@framework/*": [ "../../Framework/Signum.React/Scripts/*" ]
     },
