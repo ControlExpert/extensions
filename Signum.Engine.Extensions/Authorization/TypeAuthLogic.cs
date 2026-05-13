@@ -169,13 +169,14 @@ namespace Signum.Engine.Authorization
             return cache.GetDefaultDictionary();
         }
 
-        static readonly Variable<ImmutableStack<(Type type, TypeAllowed typeAllowed)>> tempAllowed =
-            Statics.ThreadVariable<ImmutableStack<(Type type, TypeAllowed typeAllowed)>>("temporallyAllowed");
+        // COM-8026: Fully qualify ImmutableStack to resolve CS0104 ambiguity under net5.0 (System.Collections.Immutable is now implicitly referenced).
+        static readonly Variable<Signum.Utilities.DataStructures.ImmutableStack<(Type type, TypeAllowed typeAllowed)>> tempAllowed =
+            Statics.ThreadVariable<Signum.Utilities.DataStructures.ImmutableStack<(Type type, TypeAllowed typeAllowed)>>("temporallyAllowed");
 
         public static IDisposable AllowTemporally<T>(TypeAllowed typeAllowed)
             where T : Entity
         {
-            tempAllowed.Value = (tempAllowed.Value ?? ImmutableStack<(Type type, TypeAllowed typeAllowed)>.Empty).Push((typeof(T), typeAllowed));
+            tempAllowed.Value = (tempAllowed.Value ?? Signum.Utilities.DataStructures.ImmutableStack<(Type type, TypeAllowed typeAllowed)>.Empty).Push((typeof(T), typeAllowed));
 
             return new Disposable(() => tempAllowed.Value = tempAllowed.Value.Pop());
         }

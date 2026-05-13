@@ -13,6 +13,7 @@ using Signum.Engine.Json;
 using System.Text.Json;
 using Signum.Entities.UserQueries;
 using Signum.Entities;
+using Microsoft.AspNetCore.Http; // COM-8026: Required for GetTypedHeaders extension method under net5.0.
 
 namespace Signum.React.Translation
 {
